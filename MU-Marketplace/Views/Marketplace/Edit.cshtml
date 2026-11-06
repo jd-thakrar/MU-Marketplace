@@ -1,0 +1,16 @@
+﻿@model MU_Marketplace.Models.ViewModels.ProductFormViewModel
+@{
+    ViewBag.Title = "Edit Listing";
+}
+
+<h2>Edit listing</h2>
+<p class="mp-hint">Saving your changes sends the listing back for admin approval.</p>
+
+@using (Html.BeginForm("Edit", "Marketplace", new { id = Model.ProductId }, FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.Partial("_ProductForm", Model)
+
+    <button type="submit" class="mp-btn mp-btn-primary">Save changes</button>
+    <a class="mp-btn" href="@Url.Action("MyListings")">Cancel</a>
+}

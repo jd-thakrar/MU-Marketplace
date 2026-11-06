@@ -1,19 +1,31 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewBag.Title - MU-Marketplace</title>
+    <link href="~/Content/Site.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
 
     <header>
         <h1>MU-Marketplace</h1>
+        <nav>
+            <a href="~/">Home</a> |
+            <a href="~/marketplace">Marketplace</a> |
+            <a href="~/my-listings">My Listings</a> |
+            <a href="~/my-purchases">My Purchases</a>
+        </nav>
     </header>
 
-    <main>
+    <main class="body-content">
         @RenderBody()
     </main>
+
+    <script src="~/Scripts/Site.js"></script>
+    @RenderSection("scripts", required: false)
 
 </body>
 </html>

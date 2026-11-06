@@ -1,0 +1,28 @@
+﻿@model MU_Marketplace.Models.ViewModels.ProductFormViewModel
+
+@Html.ValidationSummary(true, "", new { @class = "mp-error" })
+@Html.HiddenFor(m => m.ProductId)
+
+<div class="mp-field">
+    @Html.LabelFor(m => m.Title)
+    @Html.TextBoxFor(m => m.Title, new { @class = "mp-input", maxlength = 150 })
+    @Html.ValidationMessageFor(m => m.Title, "", new { @class = "mp-error" })
+</div>
+
+<div class="mp-field">
+    @Html.LabelFor(m => m.CategoryId)
+    @Html.DropDownListFor(m => m.CategoryId, Model.Categories, "-- Select category --", new { @class = "mp-input" })
+    @Html.ValidationMessageFor(m => m.CategoryId, "", new { @class = "mp-error" })
+</div>
+
+<div class="mp-field">
+    @Html.LabelFor(m => m.Price)
+    @Html.TextBoxFor(m => m.Price, new { @class = "mp-input", type = "number", min = "1", step = "0.01" })
+    @Html.ValidationMessageFor(m => m.Price, "", new { @class = "mp-error" })
+</div>
+
+<div class="mp-field">
+    @Html.LabelFor(m => m.Description)
+    @Html.TextAreaFor(m => m.Description, 5, 40, new { @class = "mp-input", maxlength = 1000 })
+    @Html.ValidationMessageFor(m => m.Description, "", new { @class = "mp-error" })
+</div>

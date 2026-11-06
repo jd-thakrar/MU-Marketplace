@@ -1,7 +1,63 @@
-﻿
+﻿@model IEnumerable<MU_Marketplace.Models.ViewModels.MyListingViewModel>
+@using MU_Marketplace.Models
 @{
-    ViewBag.Title = "MyListings";
+    ViewBag.Title = "My Listings";
 }
 
-<h2>MyListings</h2>
+<h2>My Listings</h2>
+@Html.Partial("_Alerts")
 
+<p><a class="mp-btn mp-btn-primary" href="@Url.Action("Create")">+ New listing</a></p>
+
+@if (!Model.Any())
+{
+    <p class="mp-empty">You have not listed anything yet.</p>
+}
+else
+{
+    <table class="mp-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Listed</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var p in Model)
+        {
+            <tr>
+                <td>
+                    <a href="@Url.Action("Details", new { id = p.ProductId })">@p.Title</a>
+                    <div class="mp-meta">@p.CategoryName</div>
+                </td>
+                <td>&#8377;@p.Price.ToString("N2")</td>
+                <td><span class="mp-badge mp-@p.Status.ToString().ToLower()">@p.Status</span></td>
+                <td>@p.CreatedDate.ToString("dd MMM yyyy")</td>
+                <td>
+                    @if (p.Status == ProductStatus.Sold)
+                    {
+                        <div>Buyer: @p.BuyerName</div>
+                        if (!string.IsNullOrWhiteSpace(p.BuyerPhone))
+                        {
+                            <div class="mp-meta">Phone: @p.BuyerPhone</div>
+                        }
+                    }
+                    else
+                    {
+                        <a class="mp-btn" href="@Url.Action("Edit", new { id = p.ProductId })">Edit</a>
+                        using (Html.BeginForm("Remove", "Marketplace", new { id = p.ProductId }, FormMethod.Post,
+                               new { @class = "mp-inline", onsubmit = "return confirm('Remove this listing?');" }))
+                        {
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="mp-btn mp-btn-danger">Remove</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

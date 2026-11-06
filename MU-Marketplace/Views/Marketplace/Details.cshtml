@@ -1,7 +1,43 @@
-﻿
+﻿@model MU_Marketplace.Models.ViewModels.ProductDetailsViewModel
+@using MU_Marketplace.Models
 @{
-    ViewBag.Title = "Details";
+    ViewBag.Title = Model.Title;
 }
 
-<h2>Details</h2>
+@Html.Partial("_Alerts")
+<a href="@Url.Action("Index")">&larr; Back to marketplace</a>
 
+<div class="mp-detail">
+    <div class="mp-card-cat">@Model.CategoryName</div>
+    <h2>
+        @Model.Title
+        <span class="mp-badge mp-@Model.Status.ToString().ToLower()">@Model.Status</span>
+    </h2>
+
+    <div class="mp-price mp-price-lg">&#8377;@Model.Price.ToString("N2")</div>
+    <p class="mp-meta">Listed by @Model.SellerName on @Model.CreatedDate.ToString("dd MMM yyyy")</p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <p class="mp-desc">@Model.Description</p>
+    }
+
+    @if (Model.CanBuy)
+    {
+        using (Html.BeginForm("Buy", "Marketplace", new { id = Model.ProductId }, FormMethod.Post,
+               new { onsubmit = "return confirm('Confirm purchase of this item?');" }))
+        {
+            @Html.AntiForgeryToken()
+            <button type="submit" class="mp-btn mp-btn-primary">Buy now</button>
+        }
+    }
+    else if (Model.Status == ProductStatus.Sold)
+    {
+        <p class="mp-hint">This item has been sold.</p>
+    }
+    else if (Model.IsOwner)
+    {
+        <p class="mp-hint">This is your listing.
+            <a href="@Url.Action("MyListings")">Manage my listings</a></p>
+    }
+</div>
