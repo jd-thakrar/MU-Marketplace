@@ -1,7 +1,288 @@
 ﻿
+@using System.Data
+
 @{
-    ViewBag.Title = "Listings";
+    ViewBag.PageTitle = "Manage Listings";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable products = Model as DataTable;
+    int currentStatus = Convert.ToInt32(ViewBag.CurrentStatus);
 }
 
-<h2>Listings</h2>
+<div class="page-heading">
+    <h1>Manage Listings</h1>
+    <p>Review and moderate products submitted by students.</p>
+</div>
 
+<!-- STATUS TABS -->
+<div class="panel-card">
+
+    <div class="filter-bar">
+
+        <a href="@Url.Action("Listings", new { status = 0 })"
+           class="btn @(currentStatus == 0 ? "btn-primary" : "btn-secondary")">
+            Pending
+        </a>
+
+        <a href="@Url.Action("Listings", new { status = 1 })"
+           class="btn @(currentStatus == 1 ? "btn-primary" : "btn-secondary")">
+            Approved
+        </a>
+
+        <a href="@Url.Action("Listings", new { status = 2 })"
+           class="btn @(currentStatus == 2 ? "btn-primary" : "btn-secondary")">
+            Rejected
+        </a>
+
+        <a href="@Url.Action("Listings", new { status = 3 })"
+           class="btn @(currentStatus == 3 ? "btn-primary" : "btn-secondary")">
+            Sold
+        </a>
+
+    </div>
+
+    <div class="panel-header">
+        <h3>
+            @(currentStatus == 0 ? "Pending Listings" :
+              currentStatus == 1 ? "Approved Listings" :
+              currentStatus == 2 ? "Rejected Listings" : "Sold Listings")
+        </h3>
+
+        <span>@(products == null ? 0 : products.Rows.Count) listings</span>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="table-responsive">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Seller</th>
+                        <th>Condition</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (products != null && products.Rows.Count > 0)
+                    {
+                        foreach (DataRow item in products.Rows)
+                        {
+                            int productId = Convert.ToInt32(item["ProductId"]);
+
+                            int productStatus = Convert.ToInt32(item["Status"]);
+
+                            string statusName =
+                                productStatus == 0 ? "Pending" :
+                                productStatus == 1 ? "Approved" :
+                                productStatus == 2 ? "Rejected" : "Sold";
+
+                            string statusClass =
+                                productStatus == 0 ? "status-pending" :
+                                productStatus == 1 ? "status-approved" :
+                                productStatus == 2 ? "status-rejected" : "status-sold";
+
+                            string condition =
+                                Convert.ToInt32(item["ProductCondition"]) == 0 ? "New" :
+                                Convert.ToInt32(item["ProductCondition"]) == 1 ? "Like New" :
+                                Convert.ToInt32(item["ProductCondition"]) == 2 ? "Good" : "Fair";
+
+                            <tr>
+                                <td>#@productId</td>
+
+                                <td>
+                                    <strong>@item["Title"]</strong>
+                                    <br />
+                                    <small>@item["PickupLocation"]</small>
+                                </td>
+
+                                <td>@item["CategoryName"]</td>
+
+                                <td>₹@Convert.ToDecimal(item["Price"]).ToString("N2")</td>
+
+                                <td>
+                                    @item["SellerName"]
+                                    <br />
+                                    <small>@item["SellerEmail"]</small>
+                                </td>
+
+                                <td>@condition</td>
+
+                                <td>
+                                    <span class="status-badge @statusClass">
+                                        @statusName
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @if (currentStatus == 0)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm"
+                                                onclick="openListingModal(
+                                                    @productId,
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Title"]))')">
+                                            Review
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button"
+                                                class="btn btn-secondary btn-sm"
+                                                onclick="showListingDetails(
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Title"]))',
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Description"]))',
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["AdminNotes"]))')">
+                                            Details
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" style="text-align:center;padding:30px;">
+                                No listings found in this category.
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- LISTING REVIEW MODAL -->
+<div class="modal-overlay" id="listingModal">
+
+    <div class="modal-box">
+
+        <div class="modal-header">
+            <h3>Review Listing</h3>
+
+            <button type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick="closeListingModal()">
+                ✕
+            </button>
+        </div>
+
+        <div class="modal-body">
+
+            <h3 id="listingTitle" style="color:#07364B;"></h3>
+
+            <p style="color:#718096;">
+                Select an action after reviewing this listing.
+            </p>
+
+            @using (Html.BeginForm("ReviewListing", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       name="productId"
+                       id="reviewProductId" />
+
+                <div class="form-group">
+                    <label>Admin Notes</label>
+
+                    <textarea name="adminNotes"
+                              class="form-control"
+                              maxlength="500"
+                              placeholder="Enter review remarks (optional)"></textarea>
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="submit"
+                            name="status"
+                            value="2"
+                            class="btn btn-danger">
+                        Reject
+                    </button>
+
+                    <button type="submit"
+                            name="status"
+                            value="1"
+                            class="btn btn-success">
+                        Approve
+                    </button>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- LISTING DETAILS MODAL -->
+<div class="modal-overlay" id="detailsModal">
+
+    <div class="modal-box">
+
+        <div class="modal-header">
+            <h3>Listing Details</h3>
+
+            <button type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick="document.getElementById('detailsModal').classList.remove('show')">
+                ✕
+            </button>
+        </div>
+
+        <div class="modal-body">
+
+            <h3 id="detailTitle"></h3>
+
+            <p id="detailDescription"></p>
+
+            <strong>Admin Notes</strong>
+            <p id="detailNotes"></p>
+
+        </div>
+
+    </div>
+
+</div>
+
+@section scripts {
+    <script>
+
+        function openListingModal(id, title) {
+            document.getElementById("reviewProductId").value = id;
+            document.getElementById("listingTitle").textContent = title;
+
+            document.getElementById("listingModal").classList.add("show");
+        }
+
+        function closeListingModal() {
+            document.getElementById("listingModal").classList.remove("show");
+        }
+
+        function showListingDetails(title, description, notes) {
+            document.getElementById("detailTitle").textContent = title;
+            document.getElementById("detailDescription").textContent = description;
+            document.getElementById("detailNotes").textContent = notes || "No admin notes.";
+
+            document.getElementById("detailsModal").classList.add("show");
+        }
+
+    </script>
+}

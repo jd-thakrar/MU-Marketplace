@@ -1,7 +1,253 @@
 ﻿
+@using System.Data
+
 @{
-    ViewBag.Title = "Reports";
+    ViewBag.PageTitle = "Reports";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable reports = Model as DataTable;
 }
 
-<h2>Reports</h2>
+<div class="page-heading">
+    <h1>Reports Management</h1>
+    <p>Review reported products and take appropriate moderation actions.</p>
+</div>
 
+<div class="panel-card">
+
+    <div class="panel-header">
+        <h3>Submitted Reports</h3>
+
+        <span>@(reports == null ? 0 : reports.Rows.Count) reports</span>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="table-responsive">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>Report ID</th>
+                        <th>Product</th>
+                        <th>Reported By</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (reports != null && reports.Rows.Count > 0)
+                    {
+                        foreach (DataRow report in reports.Rows)
+                        {
+                            int reportId = Convert.ToInt32(report["ReportId"]);
+                            int status = Convert.ToInt32(report["Status"]);
+
+                            string statusName =
+                                status == 0 ? "Pending" :
+                                status == 1 ? "Resolved" : "Ignored";
+
+                            string statusClass =
+                                status == 0 ? "status-pending" :
+                                status == 1 ? "status-resolved" : "status-ignored";
+
+                            <tr>
+
+                                <td>#@reportId</td>
+
+                                <td>
+                                    <strong>@report["ProductTitle"]</strong>
+                                    <br />
+                                    <small>Product #@report["ProductId"]</small>
+                                </td>
+
+                                <td>
+                                    @report["ReporterName"]
+                                    <br />
+                                    <small>@report["ReporterEmail"]</small>
+                                </td>
+
+                                <td>
+                                    @report["Reason"]
+                                </td>
+
+                                <td>
+                                    @Convert.ToDateTime(report["CreatedAt"]).ToString("dd MMM yyyy")
+                                </td>
+
+                                <td>
+                                    <span class="status-badge @statusClass">
+                                        @statusName
+                                    </span>
+                                </td>
+
+                                <td>
+
+                                    @if (status == 0)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm"
+                                                onclick="openReportModal(
+                                                    @reportId,
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(report["ProductTitle"]))',
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(report["Reason"]))',
+                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(report["ReporterName"]))')">
+                                            Review
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#718096;font-size:12px;">
+                                            Reviewed
+                                        </span>
+                                    }
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" style="text-align:center;padding:30px;">
+                                No reports have been submitted.
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- REPORT REVIEW MODAL -->
+<div class="modal-overlay" id="reportModal">
+
+    <div class="modal-box">
+
+        <div class="modal-header">
+
+            <h3>Review Report</h3>
+
+            <button type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick="closeReportModal()">
+                ✕
+            </button>
+
+        </div>
+
+        <div class="modal-body">
+
+            <div class="form-group">
+                <label>Reported Product</label>
+                <p id="reportProduct" style="color:#07364B;font-weight:600;"></p>
+            </div>
+
+            <div class="form-group">
+                <label>Reported By</label>
+                <p id="reporterName"></p>
+            </div>
+
+            <div class="form-group">
+                <label>Report Reason</label>
+                <p id="reportReason" style="color:#D94B4B;"></p>
+            </div>
+
+            @using (Html.BeginForm("ReviewReport", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+
+                <input type="hidden"
+                       name="reportId"
+                       id="reviewReportId" />
+
+                <div class="form-group">
+
+                    <label>Admin Notes</label>
+
+                    <textarea name="adminNotes"
+                              class="form-control"
+                              maxlength="500"
+                              placeholder="Enter moderation remarks (optional)"></textarea>
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>Select Action</label>
+
+                    <select name="decision" class="form-control" required>
+
+                        <option value="">Select an action</option>
+
+                        <option value="resolve">Resolve Report</option>
+
+                        <option value="ignore">Ignore Report</option>
+
+                        <option value="remove">Remove Reported Product</option>
+
+                    </select>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            onclick="closeReportModal()">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary"
+                            onclick="return confirm('Are you sure you want to submit this moderation decision?');">
+                        Submit Decision
+                    </button>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+</div>
+
+@section scripts {
+
+    <script>
+
+        function openReportModal(id, product, reason, reporter) {
+
+            document.getElementById("reviewReportId").value = id;
+
+            document.getElementById("reportProduct").textContent = product;
+
+            document.getElementById("reportReason").textContent = reason;
+
+            document.getElementById("reporterName").textContent = reporter;
+
+            document.getElementById("reportModal").classList.add("show");
+        }
+
+        function closeReportModal() {
+
+            document.getElementById("reportModal").classList.remove("show");
+
+        }
+
+    </script>
+
+}

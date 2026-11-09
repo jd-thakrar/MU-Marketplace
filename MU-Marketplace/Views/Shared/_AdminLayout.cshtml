@@ -1,0 +1,136 @@
+﻿
+@{
+    string currentAction = ViewContext.RouteData.Values["action"].ToString();
+    string pageTitle = ViewBag.PageTitle ?? "Admin Panel";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>@pageTitle - MU Marketplace Admin</title>
+
+    <link rel="stylesheet" href="@Url.Content("~/Content/Admin.css")" />
+</head>
+<body>
+
+    <div class="admin-wrapper">
+
+        <!-- SIDEBAR -->
+        <aside class="admin-sidebar" id="adminSidebar">
+
+            <div class="sidebar-brand">
+                <div class="user-avatar">MU</div>
+                <div>
+                    <h2>MU Marketplace</h2>
+                    <span>Administration</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+
+                <div class="sidebar-heading">Main Menu</div>
+
+                <a href="@Url.Action("Dashboard", "Admin")"
+                   class="sidebar-link @(currentAction == "Dashboard" ? "active" : "")">
+                    <span class="menu-icon">▦</span>
+                    Dashboard
+                </a>
+
+                <a href="@Url.Action("Listings", "Admin")"
+                   class="sidebar-link @(currentAction == "Listings" ? "active" : "")">
+                    <span class="menu-icon">▤</span>
+                    Manage Listings
+                </a>
+
+                <a href="@Url.Action("Users", "Admin")"
+                   class="sidebar-link @(currentAction == "Users" ? "active" : "")">
+                    <span class="menu-icon">♙</span>
+                    Manage Users
+                </a>
+
+                <a href="@Url.Action("Reports", "Admin")"
+                   class="sidebar-link @(currentAction == "Reports" ? "active" : "")">
+                    <span class="menu-icon">⚑</span>
+                    Reports
+                </a>
+
+            </nav>
+
+            <div class="sidebar-footer">
+                MU Marketplace<br />
+                Admin Panel
+            </div>
+
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="admin-main">
+
+            <header class="admin-topbar">
+
+                <div style="display:flex;align-items:center;gap:15px;">
+                    <button class="sidebar-toggle"
+                            type="button"
+                            onclick="toggleSidebar()">
+                        ☰
+                    </button>
+
+                    <span class="topbar-title">@pageTitle</span>
+                </div>
+
+                <div class="topbar-user">
+                    <div class="user-avatar">A</div>
+
+                    <div class="user-details">
+                        <strong>Administrator</strong>
+                        <small>System Admin</small>
+                    </div>
+
+                    @using (Html.BeginForm("Logout", "Admin", FormMethod.Post))
+                    {
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            Logout
+                        </button>
+                    }
+                </div>
+
+            </header>
+
+            <section class="admin-content">
+
+                @if (TempData["Success"] != null)
+                {
+                    <div class="alert alert-success">
+                        @TempData["Success"]
+                    </div>
+                }
+
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger">
+                        @TempData["Error"]
+                    </div>
+                }
+
+                @RenderBody()
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <script>
+                function toggleSidebar() {
+                    document.getElementById("adminSidebar").classList.toggle("open");
+                }
+    </script>
+
+    @RenderSection("scripts", required: false)
+
+</body>
+</html>

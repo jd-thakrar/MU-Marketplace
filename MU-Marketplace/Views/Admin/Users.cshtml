@@ -1,7 +1,148 @@
 ﻿
+@using System.Data
+
 @{
-    ViewBag.Title = "Users";
+    ViewBag.PageTitle = "Manage Users";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable users = Model as DataTable;
 }
 
-<h2>Users</h2>
+<div class="page-heading">
+    <h1>Manage Users</h1>
+    <p>View student accounts and manage their marketplace access.</p>
+</div>
 
+<div class="panel-card">
+
+    <div class="panel-header">
+        <h3>Student Accounts</h3>
+
+        <span>@(users == null ? 0 : users.Rows.Count) students</span>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="table-responsive">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student Name</th>
+                        <th>Email</th>
+                        <th>Enrollment No.</th>
+                        <th>Department</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (users != null && users.Rows.Count > 0)
+                    {
+                        foreach (DataRow user in users.Rows)
+                        {
+                            int userId = Convert.ToInt32(user["UserId"]);
+                            int status = Convert.ToInt32(user["Status"]);
+
+                            <tr>
+
+                                <td>#@userId</td>
+
+                                <td>
+                                    <strong>@user["FullName"]</strong>
+                                </td>
+
+                                <td>@user["Email"]</td>
+
+                                <td>
+                                    @(user["EnrollmentNo"] == DBNull.Value
+                                        ? "N/A" : user["EnrollmentNo"])
+                                </td>
+
+                                <td>
+                                    @(user["Department"] == DBNull.Value
+                                        ? "N/A" : user["Department"])
+                                </td>
+
+                                <td>
+                                    @(user["PhoneNumber"] == DBNull.Value
+                                        ? "N/A" : user["PhoneNumber"])
+                                </td>
+
+                                <td>
+                                    @if (status == 0)
+                                    {
+                                        <span class="status-badge status-active">
+                                            Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-suspended">
+                                            Suspended
+                                        </span>
+                                    }
+                                </td>
+
+                                <td>
+
+                                    @using (Html.BeginForm(
+                                        "ChangeUserStatus",
+                                        "Admin",
+                                        FormMethod.Post))
+                                    {
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden"
+                                               name="userId"
+                                               value="@userId" />
+
+                                        if (status == 0)
+                                        {
+                                            <button type="submit"
+                                                    name="status"
+                                                    value="1"
+                                                    class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('Are you sure you want to suspend this student?');">
+                                                Suspend
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit"
+                                                    name="status"
+                                                    value="0"
+                                                    class="btn btn-success btn-sm">
+                                                Activate
+                                            </button>
+                                        }
+                                    }
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" style="text-align:center;padding:30px;">
+                                No student accounts found.
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>

@@ -1,7 +1,84 @@
 ﻿
 @{
-    ViewBag.Title = "Login";
+    Layout = null;
+    ViewBag.Title = "Admin Login";
 }
 
-<h2>Login</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <title>Admin Login - MU Marketplace</title>
+
+    <link rel="stylesheet" href="@Url.Content("~/Content/Admin.css")" />
+</head>
+<body>
+
+    <div class="admin-login-page">
+
+        <div class="login-card">
+
+            <div class="login-brand">
+
+                <div class="user-avatar" style="margin:auto;width:55px;height:55px;">
+                    MU
+                </div>
+
+                <h1>MU Marketplace</h1>
+
+                <p>Administrator Login</p>
+
+            </div>
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">
+                    @TempData["Error"]
+                </div>
+            }
+
+            @using (Html.BeginForm("Login", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+
+                <div class="form-group">
+                    <label for="Email">Email Address</label>
+
+                    <input type="email"
+                           id="Email"
+                           name="email"
+                           class="form-control"
+                           placeholder="Enter admin email"
+                           required />
+                </div>
+
+                <div class="form-group">
+                    <label for="Password">Password</label>
+
+                    <input type="password"
+                           id="Password"
+                           name="password"
+                           class="form-control"
+                           placeholder="Enter your password"
+                           required />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-primary"
+                        style="width:100%;margin-top:8px;">
+                    Login to Dashboard
+                </button>
+            }
+
+            <p style="text-align:center;margin-top:25px;color:#718096;font-size:12px;">
+                MU Marketplace | Secure Admin Access
+            </p>
+
+        </div>
+
+    </div>
+
+</body>
+</html>
