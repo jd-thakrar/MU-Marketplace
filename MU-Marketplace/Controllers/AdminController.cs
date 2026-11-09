@@ -4,7 +4,8 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Web.Mvc;
-
+using System.Security.Cryptography;
+using System.Text;
 namespace MU_Marketplace.Controllers
 {
     public class AdminController : Controller
@@ -64,6 +65,64 @@ namespace MU_Marketplace.Controllers
             if (Session["AdminUserId"] != null && IsAdmin())
                 return RedirectToAction("Dashboard");
 
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Login(string email, string password)
+        {
+            if (string.IsNullOrWhiteSpace(email) ||
+                string.IsNullOrWhiteSpace(password))
+            {
+                ViewBag.Error = "Please enter email and password.";
+                return View();
+            }
+
+            // Generate SHA-256 hash matching our SQL demo account.
+            string passwordHash;
+
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(password);
+                byte[] hash = sha256.ComputeHash(bytes);
+
+                passwordHash = BitConverter.ToString(hash)
+                    .Replace("-", "");
+            }
+
+            using (SqlConnection con = new SqlConnection(connectionString))
+            {
+                string query = @"
+            SELECT UserId
+            FROM Users
+            WHERE Email = @Email
+            AND PasswordHash = @PasswordHash
+            AND [Role] = 1
+            AND [Status] = 0";
+
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.Add("@Email", SqlDbType.NVarChar, 150)
+                        .Value = email.Trim();
+
+                    cmd.Parameters.Add("@PasswordHash", SqlDbType.NVarChar, 255)
+                        .Value = passwordHash;
+
+                    con.Open();
+
+                    object result = cmd.ExecuteScalar();
+
+                    if (result != null)
+                    {
+                        Session["AdminUserId"] = Convert.ToInt32(result);
+
+                        return RedirectToAction("Dashboard");
+                    }
+                }
+            }
+
+            ViewBag.Error = "Invalid email or password.";
             return View();
         }
 
