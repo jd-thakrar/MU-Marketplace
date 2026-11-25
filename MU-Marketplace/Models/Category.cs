@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MU_Marketplace.Models
 {
@@ -9,8 +9,12 @@ namespace MU_Marketplace.Models
     {
         public int CategoryId { get; set; }
 
+        [Required, StringLength(100)]
+        [Index("UQ_Categories_CategoryName", IsUnique = true)]
+        [Display(Name = "Category")]
         public string CategoryName { get; set; }
 
+        [StringLength(500)]
         public string Description { get; set; }
 
         public bool IsActive { get; set; }
@@ -19,7 +23,13 @@ namespace MU_Marketplace.Models
 
         public DateTime? UpdatedAt { get; set; }
 
-        // Display property
-        public int ProductCount { get; set; }
+        public virtual ICollection<Product> Products { get; set; }
+
+        public Category()
+        {
+            IsActive = true;
+            CreatedAt = DateTime.UtcNow;
+            Products = new HashSet<Product>();
+        }
     }
 }

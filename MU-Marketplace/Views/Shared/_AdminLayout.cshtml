@@ -1,67 +1,89 @@
-﻿
-@{
-    string currentAction = ViewContext.RouteData.Values["action"].ToString();
+﻿@{
+    string currentAction = (ViewContext.RouteData.Values["action"] ?? "").ToString();
     string pageTitle = ViewBag.PageTitle ?? "Admin Panel";
+    string adminName = Convert.ToString(Session["AdminName"]);
+    if (string.IsNullOrWhiteSpace(adminName))
+    {
+        adminName = "Administrator";
+    }
+    string adminInitial = adminName.Substring(0, 1).ToUpperInvariant();
 }
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>@pageTitle - MU Marketplace Admin</title>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="@Url.Content("~/Content/Admin.css")" />
 </head>
 <body>
 
     <div class="admin-wrapper">
 
-        <!-- SIDEBAR -->
+        <!-- FIXED SIDEBAR -->
         <aside class="admin-sidebar" id="adminSidebar">
 
             <div class="sidebar-brand">
-                <div class="user-avatar">MU</div>
+                <div class="brand-mark">MU</div>
                 <div>
                     <h2>MU Marketplace</h2>
-                    <span>Administration</span>
+                    <span>Admin Console</span>
                 </div>
             </div>
 
             <nav class="sidebar-menu">
 
-                <div class="sidebar-heading">Main Menu</div>
+                <div class="sidebar-heading">Overview</div>
 
                 <a href="@Url.Action("Dashboard", "Admin")"
                    class="sidebar-link @(currentAction == "Dashboard" ? "active" : "")">
-                    <span class="menu-icon">▦</span>
+                    <span class="menu-icon">&#9638;</span>
                     Dashboard
                 </a>
 
+                <div class="sidebar-heading">Marketplace</div>
+
                 <a href="@Url.Action("Listings", "Admin")"
                    class="sidebar-link @(currentAction == "Listings" ? "active" : "")">
-                    <span class="menu-icon">▤</span>
+                    <span class="menu-icon">&#9636;</span>
                     Manage Listings
                 </a>
 
+                <a href="@Url.Action("Orders", "Admin")"
+                   class="sidebar-link @(currentAction == "Orders" ? "active" : "")">
+                    <span class="menu-icon">&#9733;</span>
+                    Orders
+                </a>
+
+                <a href="@Url.Action("Categories", "Admin")"
+                   class="sidebar-link @(currentAction == "Categories" ? "active" : "")">
+                    <span class="menu-icon">&#9776;</span>
+                    Categories
+                </a>
+
+                <div class="sidebar-heading">Moderation</div>
+
                 <a href="@Url.Action("Users", "Admin")"
                    class="sidebar-link @(currentAction == "Users" ? "active" : "")">
-                    <span class="menu-icon">♙</span>
+                    <span class="menu-icon">&#9817;</span>
                     Manage Users
                 </a>
 
                 <a href="@Url.Action("Reports", "Admin")"
                    class="sidebar-link @(currentAction == "Reports" ? "active" : "")">
-                    <span class="menu-icon">⚑</span>
+                    <span class="menu-icon">&#9873;</span>
                     Reports
                 </a>
 
             </nav>
 
             <div class="sidebar-footer">
-                MU Marketplace<br />
-                Admin Panel
+                <a href="~/" class="sidebar-footer-link">&larr; View Storefront</a>
+                <small>MU Marketplace &middot; Admin</small>
             </div>
 
         </aside>
@@ -71,30 +93,24 @@
 
             <header class="admin-topbar">
 
-                <div style="display:flex;align-items:center;gap:15px;">
-                    <button class="sidebar-toggle"
-                            type="button"
-                            onclick="toggleSidebar()">
-                        ☰
-                    </button>
-
+                <div class="topbar-left">
+                    <button class="sidebar-toggle" type="button" onclick="toggleSidebar()">&#9776;</button>
                     <span class="topbar-title">@pageTitle</span>
                 </div>
 
                 <div class="topbar-user">
-                    <div class="user-avatar">A</div>
-
-                    <div class="user-details">
-                        <strong>Administrator</strong>
-                        <small>System Admin</small>
+                    <div class="user-pill">
+                        <div class="user-avatar">@adminInitial</div>
+                        <div class="user-details">
+                            <strong>@adminName</strong>
+                            <small>System Admin</small>
+                        </div>
                     </div>
 
                     @using (Html.BeginForm("Logout", "Admin", FormMethod.Post))
                     {
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-danger btn-sm">
-                            Logout
-                        </button>
+                        <button type="submit" class="btn btn-danger btn-sm">Logout</button>
                     }
                 </div>
 
@@ -104,16 +120,12 @@
 
                 @if (TempData["Success"] != null)
                 {
-                    <div class="alert alert-success">
-                        @TempData["Success"]
-                    </div>
+                    <div class="alert alert-success">@TempData["Success"]</div>
                 }
 
                 @if (TempData["Error"] != null)
                 {
-                    <div class="alert alert-danger">
-                        @TempData["Error"]
-                    </div>
+                    <div class="alert alert-danger">@TempData["Error"]</div>
                 }
 
                 @RenderBody()
@@ -125,9 +137,9 @@
     </div>
 
     <script>
-                function toggleSidebar() {
-                    document.getElementById("adminSidebar").classList.toggle("open");
-                }
+        function toggleSidebar() {
+            document.getElementById("adminSidebar").classList.toggle("open");
+        }
     </script>
 
     @RenderSection("scripts", required: false)

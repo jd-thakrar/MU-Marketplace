@@ -1,24 +1,59 @@
-﻿
-@using System.Data
+﻿@using System.Data
 
 @{
     ViewBag.PageTitle = "Manage Users";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
 
     DataTable users = Model as DataTable;
+    string search = Convert.ToString(ViewBag.Search ?? "");
+    string statusFilter = Convert.ToString(ViewBag.StatusFilter ?? "all");
 }
 
 <div class="page-heading">
-    <h1>Manage Users</h1>
-    <p>View student accounts and manage their marketplace access.</p>
+    <div>
+        <h1>Manage Users</h1>
+        <p>View student accounts, listing activity, and manage marketplace access.</p>
+    </div>
+    <a href="@Url.Action("ExportUsersCsv", "Admin")" class="btn btn-amber">
+        &#8681; Download Students CSV
+    </a>
 </div>
 
 <div class="panel-card">
 
+    <div class="filter-bar">
+
+        <div class="filter-tabs">
+            <a href="@Url.Action("Users", new { statusFilter = "all", search = search })"
+               class="btn @(statusFilter == "all" ? "btn-amber" : "btn-secondary")">
+                All Students
+            </a>
+            <a href="@Url.Action("Users", new { statusFilter = "active", search = search })"
+               class="btn @(statusFilter == "active" ? "btn-amber" : "btn-secondary")">
+                Active
+            </a>
+            <a href="@Url.Action("Users", new { statusFilter = "suspended", search = search })"
+               class="btn @(statusFilter == "suspended" ? "btn-amber" : "btn-secondary")">
+                Suspended
+            </a>
+        </div>
+
+        @using (Html.BeginForm("Users", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        {
+            <input type="hidden" name="statusFilter" value="@statusFilter" />
+            <input type="text" name="search" value="@search" class="form-control" placeholder="Search name, email, enrollment..." />
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                <a href="@Url.Action("Users", new { statusFilter = statusFilter })" class="btn btn-secondary btn-sm">Clear</a>
+            }
+        }
+
+    </div>
+
     <div class="panel-header">
         <h3>Student Accounts</h3>
-
-        <span>@(users == null ? 0 : users.Rows.Count) students</span>
+        <span class="panel-count">@(users == null ? 0 : users.Rows.Count) students</span>
     </div>
 
     <div class="panel-body">
@@ -30,11 +65,11 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Student Name</th>
-                        <th>Email</th>
-                        <th>Enrollment No.</th>
-                        <th>Department</th>
+                        <th>Student</th>
+                        <th>Enrollment / Dept</th>
                         <th>Phone</th>
+                        <th>Listings</th>
+                        <th>Joined</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -48,59 +83,46 @@
                         {
                             int userId = Convert.ToInt32(user["UserId"]);
                             int status = Convert.ToInt32(user["Status"]);
+                            string enroll = user["EnrollmentNo"] == DBNull.Value ? "N/A" : Convert.ToString(user["EnrollmentNo"]);
+                            string dept = user["Department"] == DBNull.Value ? "N/A" : Convert.ToString(user["Department"]);
+                            string phone = user["PhoneNumber"] == DBNull.Value ? "N/A" : Convert.ToString(user["PhoneNumber"]);
+                            int listingCount = Convert.ToInt32(user["ListingCount"]);
 
                             <tr>
-
                                 <td>#@userId</td>
 
                                 <td>
-                                    <strong>@user["FullName"]</strong>
-                                </td>
-
-                                <td>@user["Email"]</td>
-
-                                <td>
-                                    @(user["EnrollmentNo"] == DBNull.Value
-                                        ? "N/A" : user["EnrollmentNo"])
+                                    <strong>@user["FullName"]</strong><br />
+                                    <small>@user["Email"]</small>
                                 </td>
 
                                 <td>
-                                    @(user["Department"] == DBNull.Value
-                                        ? "N/A" : user["Department"])
+                                    @enroll<br />
+                                    <small>@dept</small>
                                 </td>
 
-                                <td>
-                                    @(user["PhoneNumber"] == DBNull.Value
-                                        ? "N/A" : user["PhoneNumber"])
-                                </td>
+                                <td>@phone</td>
+
+                                <td>@listingCount</td>
+
+                                <td>@Convert.ToDateTime(user["CreatedAt"]).ToString("dd MMM yyyy")</td>
 
                                 <td>
                                     @if (status == 0)
                                     {
-                                        <span class="status-badge status-active">
-                                            Active
-                                        </span>
+                                        <span class="status-badge status-active">Active</span>
                                     }
                                     else
                                     {
-                                        <span class="status-badge status-suspended">
-                                            Suspended
-                                        </span>
+                                        <span class="status-badge status-suspended">Suspended</span>
                                     }
                                 </td>
 
                                 <td>
-
-                                    @using (Html.BeginForm(
-                                        "ChangeUserStatus",
-                                        "Admin",
-                                        FormMethod.Post))
+                                    @using (Html.BeginForm("ChangeUserStatus", "Admin", FormMethod.Post))
                                     {
                                         @Html.AntiForgeryToken()
-
-                                        <input type="hidden"
-                                               name="userId"
-                                               value="@userId" />
+                                        <input type="hidden" name="userId" value="@userId" />
 
                                         if (status == 0)
                                         {
@@ -122,9 +144,7 @@
                                             </button>
                                         }
                                     }
-
                                 </td>
-
                             </tr>
                         }
                     }

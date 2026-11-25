@@ -1,7 +1,55 @@
-﻿
+﻿@model MU_Marketplace.Models.ViewModels.LoginViewModel
 @{
     ViewBag.Title = "Login";
 }
 
-<h2>Login</h2>
+<div class="auth-shell">
+    <section class="auth-aside">
+        <span class="kicker">Welcome back</span>
+        <h1>Your campus deals are <span class="highlight">waiting</span>.</h1>
+        <p class="lead">Log in to browse listings from fellow Marwadi University students, track your purchases and manage what you sell.</p>
+        <ul class="auth-points">
+            <li><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg></span>Every listing reviewed by an admin</li>
+            <li><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span>Students only, pickup on campus</li>
+        </ul>
+    </section>
 
+    <section class="auth-card glass" aria-labelledby="login-title">
+        <h2 id="login-title">Login</h2>
+        <p class="sub">Enter your email and password to continue.</p>
+
+        @using (Html.BeginForm("Login", "Account", new { returnUrl = ViewBag.ReturnUrl }, FormMethod.Post, new { novalidate = "novalidate" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(true)
+
+            <div class="field">
+                @Html.LabelFor(m => m.Email)
+                @Html.TextBoxFor(m => m.Email, new { @class = "input", type = "email", autocomplete = "email", placeholder = "you@example.com", autofocus = "autofocus", required = "required" })
+                @Html.ValidationMessageFor(m => m.Email)
+            </div>
+
+            <div class="field">
+                @Html.LabelFor(m => m.Password)
+                @Html.PasswordFor(m => m.Password, new { @class = "input", autocomplete = "current-password", placeholder = "Your password", required = "required" })
+                @Html.ValidationMessageFor(m => m.Password)
+            </div>
+
+            <div class="auth-row">
+                <label class="check">
+                    @Html.CheckBoxFor(m => m.RememberMe)
+                    <span>Remember me</span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Login</button>
+        }
+
+        <p class="auth-switch">New here? @Html.ActionLink("Create an account", "Register", "Account")</p>
+
+        <div class="demo-creds">
+            Demo accounts: <code>admin@example.com</code> / <code>Admin@123</code> &middot;
+            <code>user@example.com</code> / <code>User@123</code>
+        </div>
+    </section>
+</div>

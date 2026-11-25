@@ -1,7 +1,63 @@
-﻿
+﻿@model MU_Marketplace.Models.ViewModels.RegisterViewModel
 @{
-    ViewBag.Title = "Register";
+    ViewBag.Title = "Sign Up";
 }
 
-<h2>Register</h2>
+<div class="auth-shell">
+    <section class="auth-aside">
+        <span class="kicker">Join MU-Marketplace</span>
+        <h1>Buy and sell on campus, <span class="highlight">the easy way</span>.</h1>
+        <p class="lead">Create a free student account to buy what you need and pass on what you don't, all within Marwadi University.</p>
+        <ul class="auth-points">
+            <li><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><circle cx="7" cy="7" r="1.5" /></svg></span>List an item in under a minute</li>
+            <li><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>Passwords are salted and hashed</li>
+        </ul>
+    </section>
 
+    <section class="auth-card glass" aria-labelledby="signup-title">
+        <h2 id="signup-title">Create your account</h2>
+        <p class="sub">It takes less than a minute.</p>
+
+        @using (Html.BeginForm("Register", "Account", FormMethod.Post, new { novalidate = "novalidate" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(true)
+
+            <div class="field">
+                @Html.LabelFor(m => m.FullName)
+                @Html.TextBoxFor(m => m.FullName, new { @class = "input", autocomplete = "name", placeholder = "e.g. Priya Shah", autofocus = "autofocus", required = "required", maxlength = 100 })
+                @Html.ValidationMessageFor(m => m.FullName)
+            </div>
+
+            <div class="field">
+                @Html.LabelFor(m => m.Email)
+                @Html.TextBoxFor(m => m.Email, new { @class = "input", type = "email", autocomplete = "email", placeholder = "you@example.com", required = "required", maxlength = 150 })
+                @Html.ValidationMessageFor(m => m.Email)
+            </div>
+
+            <div class="field">
+                <label for="PhoneNumber">Phone number <span class="field-hint">(optional, shared with buyers for pickup)</span></label>
+                @Html.TextBoxFor(m => m.PhoneNumber, new { @class = "input", type = "tel", autocomplete = "tel", placeholder = "98765 43210", maxlength = 20 })
+                @Html.ValidationMessageFor(m => m.PhoneNumber)
+            </div>
+
+            <div class="field-grid">
+                <div class="field">
+                    @Html.LabelFor(m => m.Password)
+                    @Html.PasswordFor(m => m.Password, new { @class = "input", autocomplete = "new-password", required = "required" })
+                    @Html.ValidationMessageFor(m => m.Password)
+                </div>
+                <div class="field">
+                    @Html.LabelFor(m => m.ConfirmPassword)
+                    @Html.PasswordFor(m => m.ConfirmPassword, new { @class = "input", autocomplete = "new-password", required = "required" })
+                    @Html.ValidationMessageFor(m => m.ConfirmPassword)
+                </div>
+            </div>
+            <p class="mp-hint" style="margin-top:-8px">At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.</p>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Sign Up</button>
+        }
+
+        <p class="auth-switch">Already have an account? @Html.ActionLink("Login", "Login", "Account")</p>
+    </section>
+</div>

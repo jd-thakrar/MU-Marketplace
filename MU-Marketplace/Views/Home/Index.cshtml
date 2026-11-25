@@ -1,7 +1,174 @@
-﻿@{
+﻿@model MU_Marketplace.Models.ViewModels.HomeViewModel
+@{
     ViewBag.Title = "Home";
+    ViewBag.FullWidth = true;
+    bool signedIn = Request.IsAuthenticated;
+    var showcase = Model.LatestProducts.Take(3).ToList();
 }
 
-<h2>Welcome to MU-Marketplace</h2>
+<section class="hero">
+    <div class="container">
+        @Html.Partial("~/Views/Marketplace/_Alerts.cshtml")
 
-<p>Marwadi University Student Marketplace</p>
+        <div class="hero-grid">
+            <div>
+                <span class="eyebrow"><span class="eyebrow-dot">New</span> The student marketplace for Marwadi University</span>
+                <h1>Buy &amp; sell on campus, <span class="highlight">the easy way</span>.</h1>
+                <p class="lead">Textbooks, calculators, laptops and hostel essentials, passed from one student to the next. Every listing is reviewed by an admin before it goes live.</p>
+
+                <div class="hero-cta">
+                    @if (signedIn)
+                    {
+                        <a class="btn btn-primary btn-lg" href="~/marketplace">Browse the marketplace</a>
+                        <a class="btn btn-lg" href="~/my-listings/create">Sell an item</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-primary btn-lg" href="@Url.Action("Register", "Account")">Create free account</a>
+                        <a class="btn btn-lg" href="@Url.Action("Login", "Account")">Login</a>
+                    }
+                </div>
+
+                <div class="hero-trust">
+                    <div><strong>@Model.ActiveListings</strong>live listings</div>
+                    <div><strong>@Model.CategoryCount</strong>categories</div>
+                    <div><strong>@Model.StudentCount</strong>students</div>
+                </div>
+            </div>
+
+            <div class="hero-visual" aria-hidden="true">
+                @{
+                    var fallback = new[] {
+                        new { Cat = "Books", Title = "Engineering Mathematics", Price = 450m },
+                        new { Cat = "Calculators", Title = "Casio fx-991ES Plus", Price = 750m },
+                        new { Cat = "Electronics", Title = "HP 15s laptop", Price = 28000m }
+                    };
+                    string[] slots = { "c1", "c2", "c3" };
+                }
+                @for (int i = 0; i < 3; i++)
+                {
+                    string cat = i < showcase.Count ? showcase[i].CategoryName : fallback[i].Cat;
+                    string title = i < showcase.Count ? showcase[i].Title : fallback[i].Title;
+                    decimal price = i < showcase.Count ? showcase[i].Price : fallback[i].Price;
+                    <div class="float-card @slots[i]">
+                        <span class="mp-card-cat">@cat</span>
+                        <h3>@title</h3>
+                        <div class="float-row">
+                            <span class="mp-price">&#8377;@price.ToString("N0")</span>
+                            <span class="chip-ok">&#10003; Approved</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-head">
+            <div>
+                <span class="kicker">Why MU-Marketplace</span>
+                <h2>Made for campus life</h2>
+            </div>
+            <p>A small, trusted marketplace that only does what students actually need.</p>
+        </div>
+
+        <div class="feature-grid">
+            <article class="feature glass">
+                <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg></span>
+                <h3>Admin-reviewed listings</h3>
+                <p>Every item is checked by an administrator before other students can see it.</p>
+            </article>
+            <article class="feature glass">
+                <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span>
+                <h3>Students only</h3>
+                <p>Buy from people on your own campus and arrange pickup between classes.</p>
+            </article>
+            <article class="feature glass">
+                <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg></span>
+                <h3>Search that keeps up</h3>
+                <p>Filter by category and price, sort by newest or cheapest, results update as you type.</p>
+            </article>
+            <article class="feature glass">
+                <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><circle cx="7" cy="7" r="1.5" /></svg></span>
+                <h3>Sell in a minute</h3>
+                <p>Add a title, price and category. We handle review, and you see who bought it.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+@if (Model.LatestProducts.Any())
+{
+    <section class="section">
+        <div class="container">
+            <div class="section-head">
+                <div>
+                    <span class="kicker">Fresh on campus</span>
+                    <h2>Latest listings</h2>
+                </div>
+                <a class="btn" href="~/marketplace">View all &rarr;</a>
+            </div>
+
+            <div class="card-grid">
+                @foreach (var p in Model.LatestProducts)
+                {
+                    <a class="product-card" href="@Url.Action("Details", "Marketplace", new { id = p.ProductId })">
+                        <span class="mp-card-cat">@p.CategoryName</span>
+                        <h3>@p.Title</h3>
+                        <div class="mp-price">&#8377;@p.Price.ToString("N2")</div>
+                        <div class="mp-meta">by @p.SellerName &middot; @p.CreatedDate.ToString("dd MMM yyyy")</div>
+                    </a>
+                }
+            </div>
+            @if (!signedIn)
+            {
+                <p class="mp-hint" style="margin-top:14px">Log in to see item details and buy.</p>
+            }
+        </div>
+    </section>
+}
+
+<section class="section">
+    <div class="container">
+        <div class="section-head">
+            <div>
+                <span class="kicker">How it works</span>
+                <h2>Three steps, that's it</h2>
+            </div>
+        </div>
+        <div class="steps">
+            <div class="step glass"><div><h3>Create your account</h3><p>Sign up with your email in under a minute.</p></div></div>
+            <div class="step glass"><div><h3>List or browse</h3><p>Post what you're selling, or find what you need.</p></div></div>
+            <div class="step glass"><div><h3>Meet &amp; hand over</h3><p>Buy in one click and arrange pickup on campus.</p></div></div>
+        </div>
+    </div>
+</section>
+
+<section class="section" style="padding-bottom:16px">
+    <div class="container">
+        <div class="cta-band">
+            <div>
+                @if (signedIn)
+                {
+                    <h2>Got something to sell?</h2>
+                    <p>Turn last semester's books and gear into cash for this one.</p>
+                }
+                else
+                {
+                    <h2>Ready to join your campus marketplace?</h2>
+                    <p>Create a free account and start buying and selling today.</p>
+                }
+            </div>
+            @if (signedIn)
+            {
+                <a class="btn btn-dark btn-lg" href="~/my-listings/create">List an item</a>
+            }
+            else
+            {
+                <a class="btn btn-dark btn-lg" href="@Url.Action("Register", "Account")">Sign Up free</a>
+            }
+        </div>
+    </div>
+</section>

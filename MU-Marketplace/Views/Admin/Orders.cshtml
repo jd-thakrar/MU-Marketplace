@@ -1,0 +1,121 @@
+@using System.Data
+
+@{
+    ViewBag.PageTitle = "Orders";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable orders = Model as DataTable;
+    string search = Convert.ToString(ViewBag.Search ?? "");
+    int totalOrders = ViewBag.TotalOrders != null ? Convert.ToInt32(ViewBag.TotalOrders) : 0;
+    decimal totalRevenue = ViewBag.TotalRevenue != null ? Convert.ToDecimal(ViewBag.TotalRevenue) : 0m;
+    decimal avgOrder = ViewBag.AvgOrder != null ? Convert.ToDecimal(ViewBag.AvgOrder) : 0m;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Orders &amp; Purchases</h1>
+        <p>Track completed student-to-student purchases across the marketplace.</p>
+    </div>
+    <a href="@Url.Action("ExportOrdersCsv", "Admin")" class="btn btn-amber">
+        &#8681; Download Orders CSV
+    </a>
+</div>
+
+<!-- ORDER SUMMARY -->
+<div class="stats-grid-3">
+
+    <div class="stat-card accent-teal">
+        <div class="stat-icon">&#9733;</div>
+        <div class="stat-info">
+            <small>Total Completed Orders</small>
+            <h2>@totalOrders</h2>
+        </div>
+    </div>
+
+    <div class="stat-card accent-green">
+        <div class="stat-icon green">&#8377;</div>
+        <div class="stat-info">
+            <small>Total Sales Volume</small>
+            <h2>&#8377;@totalRevenue.ToString("N2")</h2>
+        </div>
+    </div>
+
+    <div class="stat-card accent-amber">
+        <div class="stat-icon gold">&#8776;</div>
+        <div class="stat-info">
+            <small>Average Order Value</small>
+            <h2>&#8377;@avgOrder.ToString("N2")</h2>
+        </div>
+    </div>
+
+</div>
+
+<div class="panel-card">
+
+    <div class="filter-bar">
+        <span class="panel-count">@totalOrders order(s)</span>
+
+        @using (Html.BeginForm("Orders", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        {
+            <input type="text" name="search" value="@search" class="form-control" placeholder="Search product, buyer, seller..." />
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                <a href="@Url.Action("Orders")" class="btn btn-secondary btn-sm">Clear</a>
+            }
+        }
+    </div>
+
+    <div class="panel-body">
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Product</th>
+                        <th>Buyer</th>
+                        <th>Seller</th>
+                        <th>Pickup</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (orders != null && orders.Rows.Count > 0)
+                    {
+                        foreach (DataRow row in orders.Rows)
+                        {
+                            <tr>
+                                <td><strong>#@row["PurchaseId"]</strong></td>
+                                <td>
+                                    <strong>@row["ProductTitle"]</strong><br />
+                                    <small>@row["CategoryName"] &middot; Product #@row["ProductId"]</small>
+                                </td>
+                                <td>
+                                    @row["BuyerName"]<br />
+                                    <small>@row["BuyerEmail"]</small>
+                                </td>
+                                <td>
+                                    @row["SellerName"]<br />
+                                    <small>@row["SellerEmail"]</small>
+                                </td>
+                                <td>@row["PickupLocation"]</td>
+                                <td><strong>&#8377;@Convert.ToDecimal(row["PurchasePrice"]).ToString("N2")</strong></td>
+                                <td>@Convert.ToDateTime(row["PurchaseDate"]).ToString("dd MMM yyyy, hh:mm tt")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" style="text-align:center;padding:32px;color:#5B6270;">
+                                No completed orders found yet.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

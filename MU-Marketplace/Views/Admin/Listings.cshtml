@@ -1,5 +1,4 @@
-﻿
-@using System.Data
+﻿@using System.Data
 
 @{
     ViewBag.PageTitle = "Manage Listings";
@@ -7,37 +6,56 @@
 
     DataTable products = Model as DataTable;
     int currentStatus = Convert.ToInt32(ViewBag.CurrentStatus);
+    string search = Convert.ToString(ViewBag.Search ?? "");
 }
 
 <div class="page-heading">
-    <h1>Manage Listings</h1>
-    <p>Review and moderate products submitted by students.</p>
+    <div>
+        <h1>Manage Listings</h1>
+        <p>Review, approve, reject, remove, or inspect sold student listings.</p>
+    </div>
+    <a href="@Url.Action("ExportListingsCsv", "Admin", new { status = currentStatus })" class="btn btn-amber">
+        &#8681; Download CSV
+    </a>
 </div>
 
-<!-- STATUS TABS -->
 <div class="panel-card">
 
     <div class="filter-bar">
 
-        <a href="@Url.Action("Listings", new { status = 0 })"
-           class="btn @(currentStatus == 0 ? "btn-primary" : "btn-secondary")">
-            Pending
-        </a>
+        <div class="filter-tabs">
+            <a href="@Url.Action("Listings", new { status = 0, search = search })"
+               class="btn @(currentStatus == 0 ? "btn-amber" : "btn-secondary")">
+                Pending
+            </a>
+            <a href="@Url.Action("Listings", new { status = 1, search = search })"
+               class="btn @(currentStatus == 1 ? "btn-amber" : "btn-secondary")">
+                Approved
+            </a>
+            <a href="@Url.Action("Listings", new { status = 2, search = search })"
+               class="btn @(currentStatus == 2 ? "btn-amber" : "btn-secondary")">
+                Rejected
+            </a>
+            <a href="@Url.Action("Listings", new { status = 3, search = search })"
+               class="btn @(currentStatus == 3 ? "btn-amber" : "btn-secondary")">
+                Sold
+            </a>
+            <a href="@Url.Action("Listings", new { status = 4, search = search })"
+               class="btn @(currentStatus == 4 ? "btn-amber" : "btn-secondary")">
+                Removed
+            </a>
+        </div>
 
-        <a href="@Url.Action("Listings", new { status = 1 })"
-           class="btn @(currentStatus == 1 ? "btn-primary" : "btn-secondary")">
-            Approved
-        </a>
-
-        <a href="@Url.Action("Listings", new { status = 2 })"
-           class="btn @(currentStatus == 2 ? "btn-primary" : "btn-secondary")">
-            Rejected
-        </a>
-
-        <a href="@Url.Action("Listings", new { status = 3 })"
-           class="btn @(currentStatus == 3 ? "btn-primary" : "btn-secondary")">
-            Sold
-        </a>
+        @using (Html.BeginForm("Listings", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        {
+            <input type="hidden" name="status" value="@currentStatus" />
+            <input type="text" name="search" value="@search" class="form-control" placeholder="Search title, seller, buyer, category..." />
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                <a href="@Url.Action("Listings", new { status = currentStatus })" class="btn btn-secondary btn-sm">Clear</a>
+            }
+        }
 
     </div>
 
@@ -45,10 +63,11 @@
         <h3>
             @(currentStatus == 0 ? "Pending Listings" :
               currentStatus == 1 ? "Approved Listings" :
-              currentStatus == 2 ? "Rejected Listings" : "Sold Listings")
+              currentStatus == 2 ? "Rejected Listings" :
+              currentStatus == 3 ? "Sold Listings" : "Removed Listings")
         </h3>
 
-        <span>@(products == null ? 0 : products.Rows.Count) listings</span>
+        <span class="panel-count">@(products == null ? 0 : products.Rows.Count) listings</span>
     </div>
 
     <div class="panel-body">
@@ -64,7 +83,14 @@
                         <th>Category</th>
                         <th>Price</th>
                         <th>Seller</th>
-                        <th>Condition</th>
+                        @if (currentStatus == 3)
+                        {
+                            <th>Sold To (Buyer)</th>
+                        }
+                        else
+                        {
+                            <th>Condition</th>
+                        }
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -77,73 +103,138 @@
                         foreach (DataRow item in products.Rows)
                         {
                             int productId = Convert.ToInt32(item["ProductId"]);
-
                             int productStatus = Convert.ToInt32(item["Status"]);
 
                             string statusName =
                                 productStatus == 0 ? "Pending" :
                                 productStatus == 1 ? "Approved" :
-                                productStatus == 2 ? "Rejected" : "Sold";
+                                productStatus == 2 ? "Rejected" :
+                                productStatus == 3 ? "Sold" : "Removed";
 
                             string statusClass =
                                 productStatus == 0 ? "status-pending" :
                                 productStatus == 1 ? "status-approved" :
-                                productStatus == 2 ? "status-rejected" : "status-sold";
+                                productStatus == 2 ? "status-rejected" :
+                                productStatus == 3 ? "status-sold" : "status-removed";
 
                             string condition =
                                 Convert.ToInt32(item["ProductCondition"]) == 0 ? "New" :
                                 Convert.ToInt32(item["ProductCondition"]) == 1 ? "Like New" :
                                 Convert.ToInt32(item["ProductCondition"]) == 2 ? "Good" : "Fair";
 
+                            string title = Convert.ToString(item["Title"]);
+                            string category = Convert.ToString(item["CategoryName"]);
+                            string priceStr = Convert.ToDecimal(item["Price"]).ToString("N2");
+                            string pickup = Convert.ToString(item["PickupLocation"]);
+                            string sellerName = Convert.ToString(item["SellerName"]);
+                            string sellerEmail = Convert.ToString(item["SellerEmail"]);
+                            string description = Convert.ToString(item["Description"]);
+                            string adminNotes = item["AdminNotes"] == DBNull.Value ? "" : Convert.ToString(item["AdminNotes"]);
+
+                            string orderId = item["PurchaseId"] == DBNull.Value ? "" : "#" + Convert.ToString(item["PurchaseId"]);
+                            string buyerName = item["BuyerName"] == DBNull.Value ? "" : Convert.ToString(item["BuyerName"]);
+                            string buyerEmail = item["BuyerEmail"] == DBNull.Value ? "" : Convert.ToString(item["BuyerEmail"]);
+                            string buyerPhone = item["BuyerPhone"] == DBNull.Value ? "Not provided" : Convert.ToString(item["BuyerPhone"]);
+                            string soldPrice = item["PurchasePrice"] == DBNull.Value ? priceStr : Convert.ToDecimal(item["PurchasePrice"]).ToString("N2");
+                            string soldDate = item["PurchaseDate"] == DBNull.Value ? "" : Convert.ToDateTime(item["PurchaseDate"]).ToString("dd MMM yyyy, hh:mm tt");
+
                             <tr>
                                 <td>#@productId</td>
 
                                 <td>
-                                    <strong>@item["Title"]</strong>
-                                    <br />
-                                    <small>@item["PickupLocation"]</small>
+                                    <strong>@title</strong><br />
+                                    <small>@pickup</small>
                                 </td>
 
-                                <td>@item["CategoryName"]</td>
+                                <td>@category</td>
 
-                                <td>₹@Convert.ToDecimal(item["Price"]).ToString("N2")</td>
+                                <td>&#8377;@priceStr</td>
 
                                 <td>
-                                    @item["SellerName"]
-                                    <br />
-                                    <small>@item["SellerEmail"]</small>
+                                    @sellerName<br />
+                                    <small>@sellerEmail</small>
                                 </td>
 
-                                <td>@condition</td>
+                                @if (currentStatus == 3)
+                                {
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(buyerName))
+                                        {
+                                            <strong>@buyerName</strong><br />
+                                            <small>@buyerEmail &middot; @soldDate</small>
+                                        }
+                                        else
+                                        {
+                                            <small>Buyer info unavailable</small>
+                                        }
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td>@condition</td>
+                                }
 
                                 <td>
-                                    <span class="status-badge @statusClass">
-                                        @statusName
-                                    </span>
+                                    <span class="status-badge @statusClass">@statusName</span>
                                 </td>
 
                                 <td>
-                                    @if (currentStatus == 0)
-                                    {
-                                        <button type="button"
-                                                class="btn btn-primary btn-sm"
-                                                onclick="openListingModal(
-                                                    @productId,
-                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Title"]))')">
-                                            Review
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <button type="button"
-                                                class="btn btn-secondary btn-sm"
-                                                onclick="showListingDetails(
-                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Title"]))',
-                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["Description"]))',
-                                                    '@HttpUtility.JavaScriptStringEncode(Convert.ToString(item["AdminNotes"]))')">
-                                            Details
-                                        </button>
-                                    }
+                                    <div class="action-group">
+                                        @if (currentStatus == 0)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-amber btn-sm"
+                                                    onclick="openListingModal(
+                                                        @productId,
+                                                        '@HttpUtility.JavaScriptStringEncode(title)',
+                                                        '@HttpUtility.JavaScriptStringEncode(category)',
+                                                        '&#8377;@priceStr',
+                                                        '@HttpUtility.JavaScriptStringEncode(condition)',
+                                                        '@HttpUtility.JavaScriptStringEncode(pickup)',
+                                                        '@HttpUtility.JavaScriptStringEncode(sellerName)',
+                                                        '@HttpUtility.JavaScriptStringEncode(description)')">
+                                                Review
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-secondary btn-sm"
+                                                    onclick="showListingDetails(
+                                                        '@HttpUtility.JavaScriptStringEncode(title)',
+                                                        '@HttpUtility.JavaScriptStringEncode(category)',
+                                                        '&#8377;@priceStr',
+                                                        '@HttpUtility.JavaScriptStringEncode(condition)',
+                                                        '@HttpUtility.JavaScriptStringEncode(pickup)',
+                                                        '@HttpUtility.JavaScriptStringEncode(sellerName)',
+                                                        '@HttpUtility.JavaScriptStringEncode(description)',
+                                                        '@HttpUtility.JavaScriptStringEncode(adminNotes)',
+                                                        @(productStatus == 3 ? "true" : "false"),
+                                                        '@HttpUtility.JavaScriptStringEncode(orderId)',
+                                                        '@HttpUtility.JavaScriptStringEncode(buyerName)',
+                                                        '@HttpUtility.JavaScriptStringEncode(buyerEmail)',
+                                                        '@HttpUtility.JavaScriptStringEncode(buyerPhone)',
+                                                        '&#8377;@soldPrice',
+                                                        '@HttpUtility.JavaScriptStringEncode(soldDate)')">
+                                                Details
+                                            </button>
+                                        }
+
+                                        @if (currentStatus == 1)
+                                        {
+                                            using (Html.BeginForm("RemoveListing", "Admin", FormMethod.Post))
+                                            {
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="productId" value="@productId" />
+                                                <input type="hidden" name="adminNotes" value="Removed by administrator." />
+                                                <button type="submit"
+                                                        class="btn btn-danger btn-sm"
+                                                        onclick="return confirm('Remove this approved listing from the marketplace?');">
+                                                    Remove
+                                                </button>
+                                            }
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -152,7 +243,7 @@
                     {
                         <tr>
                             <td colspan="8" style="text-align:center;padding:30px;">
-                                No listings found in this category.
+                                No listings found in this view.
                             </td>
                         </tr>
                     }
@@ -169,106 +260,97 @@
 
 <!-- LISTING REVIEW MODAL -->
 <div class="modal-overlay" id="listingModal">
-
     <div class="modal-box">
-
         <div class="modal-header">
             <h3>Review Listing</h3>
-
-            <button type="button"
-                    class="btn btn-danger btn-sm"
-                    onclick="closeListingModal()">
-                ✕
-            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeListingModal()">&#10005;</button>
         </div>
-
         <div class="modal-body">
+            <h3 id="listingTitle" style="margin-bottom:12px;"></h3>
 
-            <h3 id="listingTitle" style="color:#07364B;"></h3>
+            <div class="detail-grid">
+                <div><small>Category</small><strong id="revCategory"></strong></div>
+                <div><small>Price</small><strong id="revPrice"></strong></div>
+                <div><small>Condition</small><strong id="revCondition"></strong></div>
+                <div><small>Pickup</small><strong id="revPickup"></strong></div>
+                <div><small>Seller</small><strong id="revSeller"></strong></div>
+            </div>
 
-            <p style="color:#718096;">
-                Select an action after reviewing this listing.
-            </p>
+            <div class="form-group">
+                <label>Description</label>
+                <p id="revDescription" style="margin:0;color:#64748B;white-space:pre-line;"></p>
+            </div>
 
             @using (Html.BeginForm("ReviewListing", "Admin", FormMethod.Post))
             {
                 @Html.AntiForgeryToken()
-
-                <input type="hidden"
-                       name="productId"
-                       id="reviewProductId" />
+                <input type="hidden" name="productId" id="reviewProductId" />
 
                 <div class="form-group">
-                    <label>Admin Notes</label>
-
-                    <textarea name="adminNotes"
-                              class="form-control"
-                              maxlength="500"
-                              placeholder="Enter review remarks (optional)"></textarea>
+                    <label>Admin Notes (optional)</label>
+                    <textarea name="adminNotes" class="form-control" maxlength="500" placeholder="Enter review remarks..."></textarea>
                 </div>
 
                 <div class="modal-footer">
-
-                    <button type="submit"
-                            name="status"
-                            value="2"
-                            class="btn btn-danger">
-                        Reject
-                    </button>
-
-                    <button type="submit"
-                            name="status"
-                            value="1"
-                            class="btn btn-success">
-                        Approve
-                    </button>
-
+                    <button type="submit" name="status" value="2" class="btn btn-danger">Reject</button>
+                    <button type="submit" name="status" value="1" class="btn btn-success">Approve</button>
                 </div>
             }
-
         </div>
-
     </div>
-
 </div>
 
 <!-- LISTING DETAILS MODAL -->
 <div class="modal-overlay" id="detailsModal">
-
     <div class="modal-box">
-
         <div class="modal-header">
             <h3>Listing Details</h3>
-
-            <button type="button"
-                    class="btn btn-danger btn-sm"
-                    onclick="document.getElementById('detailsModal').classList.remove('show')">
-                ✕
-            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('detailsModal').classList.remove('show')">&#10005;</button>
         </div>
-
         <div class="modal-body">
+            <h3 id="detailTitle" style="margin-bottom:12px;"></h3>
 
-            <h3 id="detailTitle"></h3>
+            <div class="detail-grid">
+                <div><small>Category</small><strong id="detCategory"></strong></div>
+                <div><small>Price</small><strong id="detPrice"></strong></div>
+                <div><small>Condition</small><strong id="detCondition"></strong></div>
+                <div><small>Pickup</small><strong id="detPickup"></strong></div>
+                <div><small>Seller</small><strong id="detSeller"></strong></div>
+            </div>
 
-            <p id="detailDescription"></p>
+            <div id="soldInfoBlock" class="detail-grid sold-highlight" style="display:none;">
+                <div><small>Order ID</small><strong id="detOrderId"></strong></div>
+                <div><small>Amount Paid</small><strong id="detSoldPrice"></strong></div>
+                <div><small>Sold To (Buyer)</small><strong id="detBuyerName"></strong></div>
+                <div><small>Buyer Email</small><strong id="detBuyerEmail"></strong></div>
+                <div><small>Buyer Phone</small><strong id="detBuyerPhone"></strong></div>
+                <div><small>Purchased On</small><strong id="detSoldDate"></strong></div>
+            </div>
 
-            <strong>Admin Notes</strong>
-            <p id="detailNotes"></p>
+            <div class="form-group">
+                <label>Description</label>
+                <p id="detailDescription" style="margin:0;color:#64748B;white-space:pre-line;"></p>
+            </div>
 
+            <div class="form-group">
+                <label>Admin Notes</label>
+                <p id="detailNotes" style="margin:0;color:#64748B;"></p>
+            </div>
         </div>
-
     </div>
-
 </div>
 
 @section scripts {
     <script>
-
-        function openListingModal(id, title) {
+        function openListingModal(id, title, category, price, condition, pickup, seller, description) {
             document.getElementById("reviewProductId").value = id;
             document.getElementById("listingTitle").textContent = title;
-
+            document.getElementById("revCategory").textContent = category;
+            document.getElementById("revPrice").innerHTML = price;
+            document.getElementById("revCondition").textContent = condition;
+            document.getElementById("revPickup").textContent = pickup;
+            document.getElementById("revSeller").textContent = seller;
+            document.getElementById("revDescription").textContent = description || "No description.";
             document.getElementById("listingModal").classList.add("show");
         }
 
@@ -276,13 +358,31 @@
             document.getElementById("listingModal").classList.remove("show");
         }
 
-        function showListingDetails(title, description, notes) {
+        function showListingDetails(title, category, price, condition, pickup, seller, description, notes,
+                                    isSold, orderId, buyerName, buyerEmail, buyerPhone, soldPrice, soldDate) {
             document.getElementById("detailTitle").textContent = title;
-            document.getElementById("detailDescription").textContent = description;
+            document.getElementById("detCategory").textContent = category;
+            document.getElementById("detPrice").innerHTML = price;
+            document.getElementById("detCondition").textContent = condition;
+            document.getElementById("detPickup").textContent = pickup;
+            document.getElementById("detSeller").textContent = seller;
+            document.getElementById("detailDescription").textContent = description || "No description.";
             document.getElementById("detailNotes").textContent = notes || "No admin notes.";
+
+            var soldBlock = document.getElementById("soldInfoBlock");
+            if (isSold && buyerName) {
+                soldBlock.style.display = "grid";
+                document.getElementById("detOrderId").textContent = orderId;
+                document.getElementById("detSoldPrice").innerHTML = soldPrice;
+                document.getElementById("detBuyerName").textContent = buyerName;
+                document.getElementById("detBuyerEmail").textContent = buyerEmail;
+                document.getElementById("detBuyerPhone").textContent = buyerPhone;
+                document.getElementById("detSoldDate").textContent = soldDate;
+            } else {
+                soldBlock.style.display = "none";
+            }
 
             document.getElementById("detailsModal").classList.add("show");
         }
-
     </script>
 }

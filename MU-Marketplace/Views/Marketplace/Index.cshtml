@@ -1,7 +1,31 @@
-﻿
+﻿@model MU_Marketplace.Models.ViewModels.MarketplaceIndexViewModel
 @{
-    ViewBag.Title = "Index";
+    ViewBag.Title = "Marketplace";
 }
 
-<h2>Index</h2>
+<h2>Marketplace</h2>
+@Html.Partial("_Alerts")
 
+<form id="filterForm" class="mp-filters" method="get"
+      action="@Url.Action("Index")" data-search-url="@Url.Action("Search")">
+
+    <input type="text" name="Search" value="@Model.Filter.Search" placeholder="Search items..." />
+
+    @Html.DropDownList("CategoryId", Model.Categories, "All categories")
+
+    <input type="number" name="MinPrice" min="0" step="1" value="@Model.Filter.MinPrice" placeholder="Min price" />
+    <input type="number" name="MaxPrice" min="0" step="1" value="@Model.Filter.MaxPrice" placeholder="Max price" />
+
+    <select name="Sort">
+        <option value="newest"     @(Model.Filter.Sort == "newest" || string.IsNullOrEmpty(Model.Filter.Sort) ? "selected" : "")>Newest</option>
+        <option value="price_asc"  @(Model.Filter.Sort == "price_asc" ? "selected" : "")>Price: low to high</option>
+        <option value="price_desc" @(Model.Filter.Sort == "price_desc" ? "selected" : "")>Price: high to low</option>
+    </select>
+
+    <input type="hidden" name="Page" value="@Model.Filter.Page" />
+    <noscript><button type="submit" class="mp-btn">Apply</button></noscript>
+</form>
+
+<div id="productGrid">
+    @Html.Partial("_ProductGrid", Model)
+</div>
