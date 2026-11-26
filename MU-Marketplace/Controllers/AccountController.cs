@@ -22,6 +22,7 @@ namespace MU_Marketplace.Controllers
 
         // GET /Account/Login
         [HttpGet, AllowAnonymous]
+        [OutputCache(NoStore = true, Duration = 0, VaryByParam = "*")]
         public ActionResult Login(string returnUrl)
         {
             if (Request.IsAuthenticated) return RedirectToLocal(returnUrl);
@@ -83,6 +84,7 @@ namespace MU_Marketplace.Controllers
 
         // GET /Account/Register   (shown as "Sign Up")
         [HttpGet, AllowAnonymous]
+        [OutputCache(NoStore = true, Duration = 0, VaryByParam = "*")]
         public ActionResult Register()
         {
             if (Request.IsAuthenticated) return RedirectToAction("Index", "Home");
@@ -170,6 +172,40 @@ namespace MU_Marketplace.Controllers
         {
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
             return RedirectToAction("Index", "Home");
+        }
+
+        protected override void OnException(ExceptionContext filterContext)
+        {
+            if (filterContext.Exception is HttpAntiForgeryException && !filterContext.ExceptionHandled)
+            {
+                filterContext.ExceptionHandled = true;
+                if (Request.IsAuthenticated)
+                {
+                    if (Session["AdminUserId"] != null)
+                    {
+                        filterContext.Result = RedirectToAction("Dashboard", "Admin");
+                        return;
+                    }
+
+                    string email = NormalizeEmail(User.Identity.Name);
+                    var currentUser = db.Users.AsNoTracking().FirstOrDefault(u => u.Email.ToLower() == email);
+                    if (currentUser != null && currentUser.Role == UserRole.Admin)
+                    {
+                        Session["AdminUserId"] = currentUser.UserId;
+                        Session["AdminName"] = currentUser.FullName;
+                        filterContext.Result = RedirectToAction("Dashboard", "Admin");
+                        return;
+                    }
+
+                    filterContext.Result = RedirectToAction("Index", "Home");
+                    return;
+                }
+
+                filterContext.Result = RedirectToAction("Login", "Account");
+                return;
+            }
+
+            base.OnException(filterContext);
         }
 
         protected override void Dispose(bool disposing)

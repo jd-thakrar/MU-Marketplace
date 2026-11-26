@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
     <link href="~/Content/Site.css?v=5" rel="stylesheet" type="text/css" />
-    <link href="~/Content/theme.css?v=6" rel="stylesheet" type="text/css" />
+    <link href="~/Content/theme.css?v=7" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
@@ -49,7 +49,6 @@
                     <a href="~/marketplace/cart" class="@active("/marketplace/cart", false)">Cart</a>
                     <a href="~/my-listings" class="@active("/my-listings", false)">My Listings</a>
                     <a href="~/my-purchases" class="@active("/my-purchases", false)">My Purchases</a>
-                    <a href="@Url.Action("Profile", "Student")" class="@active("/Student/Profile", false)">Profile</a>
                     if (Session["AdminUserId"] != null)
                     {
                         <a href="@Url.Action("Dashboard", "Admin")">Admin Panel</a>
@@ -60,10 +59,10 @@
             <div class="nav-actions">
                 @if (signedIn)
                 {
-                    <span class="nav-user" title="@User.Identity.Name">
+                    <a href="@Url.Action("Profile", "Student")" class="nav-user" title="My Profile (@User.Identity.Name)">
                         <span class="avatar" aria-hidden="true">@initials</span>
                         <span>@displayName</span>
-                    </span>
+                    </a>
                     using (Html.BeginForm("Logout", "Account", FormMethod.Post, new { @class = "nav-logout" }))
                     {
                         @Html.AntiForgeryToken()

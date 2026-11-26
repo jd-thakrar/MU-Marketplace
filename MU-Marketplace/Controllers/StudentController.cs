@@ -18,10 +18,18 @@ namespace MU_Marketplace.Controllers
 
         private int CurrentUserId()
         {
-            var cookie = Request.Cookies[FormsAuthentication.FormsCookieName];
-            if (cookie == null) return 0;
-            var ticket = FormsAuthentication.Decrypt(cookie.Value);
-            return ticket != null && int.TryParse(ticket.Name, out int id) ? id : 0;
+            if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                return 0;
+
+            string email = User.Identity.Name;
+            if (string.IsNullOrWhiteSpace(email))
+                return 0;
+
+            string normalized = email.Trim().ToLowerInvariant();
+            return _db.Users.AsNoTracking()
+                .Where(u => u.Email.ToLower() == normalized)
+                .Select(u => u.UserId)
+                .FirstOrDefault();
         }
 
         // ------------------------------------------------------------------ //

@@ -220,6 +220,15 @@ input, select, textarea { font: inherit; color: inherit; }
     font-weight: 500;
     font-size: .92rem;
     max-width: 220px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.nav-user:hover {
+    background: rgba(255, 255, 255, .95);
+    border-color: var(--accent, #FFC107);
+    text-decoration: none;
 }
 .nav-user span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .avatar {
