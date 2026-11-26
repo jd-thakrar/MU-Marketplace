@@ -1,0 +1,102 @@
+@model MU_Marketplace.Models.ViewModels.CartPageViewModel
+@using MU_Marketplace.Models
+@{
+    ViewBag.Title = "My Cart";
+}
+
+<div class="mp-page-head">
+    <div>
+        <h2>My Cart</h2>
+        <p class="mp-meta">Review your selected campus items before completing your order.</p>
+    </div>
+    <div class="mp-action-row">
+        <a class="mp-btn" href="@Url.Action("Index", "Marketplace")">&larr; Continue Shopping</a>
+    </div>
+</div>
+
+@Html.Partial("_Alerts")
+
+@if (!Model.Items.Any())
+{
+    <div class="mp-empty-box">
+        <p class="mp-empty" style="padding:12px 0;">Your cart is empty.</p>
+        <a class="mp-btn mp-btn-primary" href="@Url.Action("Index", "Marketplace")">Browse Marketplace</a>
+    </div>
+}
+else
+{
+    <div class="mp-cart-layout">
+        <div class="mp-cart-items">
+            <table class="mp-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Seller</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    bool available = item.Status == ProductStatus.Approved;
+                    <tr>
+                        <td>
+                            <a href="@Url.Action("Details", "Marketplace", new { id = item.ProductId })"><strong>@item.Title</strong></a>
+                            <div class="mp-meta">@item.CategoryName &middot; Added @item.AddedAt.ToString("dd MMM")</div>
+                        </td>
+                        <td>@item.SellerName</td>
+                        <td>
+                            @if (available)
+                            {
+                                <span class="mp-badge mp-approved">Available</span>
+                            }
+                            else
+                            {
+                                <span class="mp-badge mp-@item.Status.ToString().ToLower()">@item.Status</span>
+                            }
+                        </td>
+                        <td class="mp-price">&#8377;@item.Price.ToString("N2")</td>
+                        <td style="text-align:right;">
+                            @using (Html.BeginForm("RemoveFromCart", "Marketplace", new { cartItemId = item.CartItemId }, FormMethod.Post, new { @class = "mp-inline" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="mp-btn mp-btn-danger">Remove</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <aside class="mp-cart-summary">
+            <h3>Order Summary</h3>
+            <div class="mp-summary-row">
+                <span>Available items</span>
+                <strong>@Model.AvailableCount</strong>
+            </div>
+            <div class="mp-summary-row mp-summary-total">
+                <span>Total</span>
+                <strong>&#8377;@Model.Total.ToString("N2")</strong>
+            </div>
+            <p class="mp-meta" style="margin:10px 0 16px;">Online payment gateway integration is coming soon. Confirming now reserves the item(s) and provides seller pickup details.</p>
+
+            @if (Model.AvailableCount > 0)
+            {
+                using (Html.BeginForm("CheckoutCart", "Marketplace", FormMethod.Post, new { onsubmit = "return confirm('Confirm purchase of all available items in your cart?');" }))
+                {
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="mp-btn mp-btn-primary" style="width:100%;text-align:center;">
+                        Proceed to Checkout (&#8377;@Model.Total.ToString("N2"))
+                    </button>
+                }
+            }
+            else
+            {
+                <button type="button" class="mp-btn" style="width:100%;" disabled>No Available Items</button>
+            }
+        </aside>
+    </div>
+}

@@ -1,7 +1,108 @@
-﻿
+﻿@model MU_Marketplace.Models.ViewModels.ProfileViewModel
 @{
-    ViewBag.Title = "Profile";
+    ViewBag.Title = "My Profile";
 }
 
-<h2>Profile</h2>
+<div class="mp-page-header">
+    <h1>My Profile</h1>
+    <p class="mp-page-sub">Manage your account information and campus contact details.</p>
+</div>
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Success"]
+    </div>
+}
+
+<div class="profile-layout">
+
+    @* Stats sidebar *@
+    <aside class="profile-stats glass">
+        <div class="profile-avatar">
+            <span>@Model.FullName.Substring(0, 1).ToUpper()</span>
+        </div>
+        <h3 class="profile-name">@Model.FullName</h3>
+        <p class="profile-email">@Model.Email</p>
+        <p class="profile-since">Member since @Model.MemberSince.ToString("MMM yyyy")</p>
+
+        <ul class="profile-stat-list">
+            <li>
+                <span class="stat-num">@Model.TotalListed</span>
+                <span class="stat-lbl">Listed</span>
+            </li>
+            <li>
+                <span class="stat-num">@Model.TotalSold</span>
+                <span class="stat-lbl">Sold</span>
+            </li>
+            <li>
+                <span class="stat-num">@Model.TotalPurchased</span>
+                <span class="stat-lbl">Bought</span>
+            </li>
+        </ul>
+
+        @if (!string.IsNullOrWhiteSpace(Model.PhoneNumber))
+        {
+            <p class="profile-phone-note">
+                &#128222; Your phone <strong>@Model.PhoneNumber</strong> is shared with buyers/sellers after a transaction.
+            </p>
+        }
+        else
+        {
+            <p class="profile-phone-note text-muted">
+                &#9888; No phone number &mdash; buyers/sellers will see &ldquo;Not provided&rdquo; after transactions.
+            </p>
+        }
+    </aside>
+
+    @* Edit form *@
+    <section class="profile-form-card glass">
+        <h2 class="form-section-title">Edit Details</h2>
+
+        @using (Html.BeginForm("Profile", "Student", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+            <div class="field">
+                @Html.LabelFor(m => m.FullName)
+                @Html.TextBoxFor(m => m.FullName, new { @class = "input", placeholder = "Your full name", required = "required", maxlength = 100 })
+                @Html.ValidationMessageFor(m => m.FullName, "", new { @class = "field-error" })
+            </div>
+
+            <div class="field">
+                <label>Email <span class="field-hint">(cannot be changed)</span></label>
+                <input type="email" class="input" value="@Model.Email" disabled="disabled" />
+                @Html.HiddenFor(m => m.Email)
+            </div>
+
+            <div class="field-grid">
+                <div class="field">
+                    @Html.LabelFor(m => m.EnrollmentNo)
+                    @Html.TextBoxFor(m => m.EnrollmentNo, new { @class = "input", placeholder = "e.g. 21CE001", maxlength = 30 })
+                    @Html.ValidationMessageFor(m => m.EnrollmentNo, "", new { @class = "field-error" })
+                </div>
+                <div class="field">
+                    @Html.LabelFor(m => m.Department)
+                    @Html.TextBoxFor(m => m.Department, new { @class = "input", placeholder = "e.g. Computer Engineering", maxlength = 100 })
+                    @Html.ValidationMessageFor(m => m.Department, "", new { @class = "field-error" })
+                </div>
+            </div>
+
+            <div class="field">
+                @Html.LabelFor(m => m.PhoneNumber)
+                @Html.TextBoxFor(m => m.PhoneNumber, new { @class = "input", type = "tel", placeholder = "98765 43210", maxlength = 20 })
+                @Html.ValidationMessageFor(m => m.PhoneNumber, "", new { @class = "field-error" })
+                <small class="mp-hint">Shared with the other party after a completed transaction for pickup coordination.</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                @Html.ActionLink("My Listings", "MyListings", "Marketplace", null, new { @class = "btn btn-secondary" })
+                @Html.ActionLink("My Purchases", "MyPurchases", "Marketplace", null, new { @class = "btn btn-secondary" })
+            </div>
+        }
+    </section>
+
+</div>

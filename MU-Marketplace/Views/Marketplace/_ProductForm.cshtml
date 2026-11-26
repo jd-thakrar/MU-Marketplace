@@ -40,6 +40,20 @@
 </div>
 
 <div class="mp-field">
+    @Html.LabelFor(m => m.ImageFile)
+    @if (Model.HasExistingImage && Model.ProductId > 0)
+    {
+        <div style="margin-bottom:8px;">
+            <img src="@Url.Action("Image", "Marketplace", new { id = Model.ProductId })" alt="Current product image" class="mp-form-preview" />
+            <div class="mp-meta">Current image &mdash; upload a new file only if you want to replace it.</div>
+        </div>
+    }
+    <input type="file" name="ImageFile" id="ImageFile" accept=".jpg,.jpeg,.png,.webp" class="mp-input" />
+    <div class="mp-meta">JPG, PNG, or WEBP &middot; Max 2 MB</div>
+    @Html.ValidationMessageFor(m => m.ImageFile, "", new { @class = "mp-error" })
+</div>
+
+<div class="mp-field">
     @Html.LabelFor(m => m.Description)
     @Html.TextAreaFor(m => m.Description, 5, 40, new { @class = "mp-input", maxlength = 2000 })
     @Html.ValidationMessageFor(m => m.Description, "", new { @class = "mp-error" })

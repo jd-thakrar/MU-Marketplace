@@ -6,7 +6,7 @@
 <h2>List an item for sale</h2>
 <p class="mp-hint">Your listing becomes visible to other students after an administrator approves it.</p>
 
-@using (Html.BeginForm("Create", "Marketplace", FormMethod.Post))
+@using (Html.BeginForm("Create", "Marketplace", FormMethod.Post, new { enctype = "multipart/form-data" }))
 {
     @Html.AntiForgeryToken()
     @Html.Partial("_ProductForm", Model)

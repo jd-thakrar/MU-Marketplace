@@ -116,6 +116,8 @@
     <Compile Include="Infrastructure\PasswordHasher.cs" />
     <Compile Include="Migrations\DbSeeder.cs" />
     <Compile Include="Models\ApplicationDbContext.cs" />
+    <Compile Include="Models\Cart.cs" />
+    <Compile Include="Models\CartItem.cs" />
     <Compile Include="Models\Category.cs" />
     <Compile Include="Models\Product.cs" />
     <Compile Include="Models\ProductStatus.cs" />
@@ -139,6 +141,7 @@
     <Content Include="Views\Student\Index.cshtml" />
     <Content Include="Views\Student\Profile.cshtml" />
     <Content Include="Views\Marketplace\Index.cshtml" />
+    <Content Include="Views\Marketplace\Cart.cshtml" />
     <Content Include="Views\Marketplace\Details.cshtml" />
     <Content Include="Views\Marketplace\MyListings.cshtml" />
     <Content Include="Views\Marketplace\MyPurchases.cshtml" />
@@ -147,7 +150,6 @@
     <Content Include="Views\Marketplace\_ProductForm.cshtml" />
     <Content Include="Views\Marketplace\Create.cshtml" />
     <Content Include="Views\Marketplace\Edit.cshtml" />
-    <Content Include="Views\Admin\Login.cshtml" />
     <Content Include="Views\Admin\Dashboard.cshtml" />
     <Content Include="Views\Admin\Listings.cshtml" />
     <Content Include="Views\Admin\Users.cshtml" />

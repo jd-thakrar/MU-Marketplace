@@ -6,7 +6,7 @@
 <h2>Edit listing</h2>
 <p class="mp-hint">Saving your changes sends the listing back for admin approval.</p>
 
-@using (Html.BeginForm("Edit", "Marketplace", new { id = Model.ProductId }, FormMethod.Post))
+@using (Html.BeginForm("Edit", "Marketplace", new { id = Model.ProductId }, FormMethod.Post, new { enctype = "multipart/form-data" }))
 {
     @Html.AntiForgeryToken()
     @Html.Partial("_ProductForm", Model)

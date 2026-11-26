@@ -3,7 +3,16 @@
     ViewBag.Title = "My Purchases";
 }
 
-<h2>My Purchases</h2>
+<div class="mp-page-head">
+    <div>
+        <h2>My Purchases</h2>
+        <p class="mp-meta">Use the seller's contact number and campus pickup spot below to collect your item.</p>
+    </div>
+    <div class="mp-action-row">
+        <a class="mp-btn" href="@Url.Action("Index", "Marketplace")">&larr; Browse Marketplace</a>
+    </div>
+</div>
+
 @Html.Partial("_Alerts")
 
 @if (!Model.Any())
@@ -18,20 +27,34 @@ else
             <tr>
                 <th>Item</th>
                 <th>Paid</th>
+                <th>Pick From</th>
                 <th>Date</th>
-                <th>Seller</th>
-                <th>Seller phone</th>
+                <th>Seller Contact</th>
             </tr>
         </thead>
         <tbody>
         @foreach (var p in Model)
         {
             <tr>
-                <td><a href="@Url.Action("Details", new { id = p.ProductId })">@p.Title</a></td>
-                <td>&#8377;@p.AmountPaid.ToString("N2")</td>
+                <td><a href="@Url.Action("Details", new { id = p.ProductId })"><strong>@p.Title</strong></a></td>
+                <td class="mp-price">&#8377;@p.AmountPaid.ToString("N2")</td>
+                <td>@(string.IsNullOrWhiteSpace(p.PickupLocation) ? "MU Campus" : p.PickupLocation)</td>
                 <td>@p.PurchaseDate.ToString("dd MMM yyyy, hh:mm tt")</td>
-                <td>@p.SellerName</td>
-                <td>@(string.IsNullOrWhiteSpace(p.SellerPhone) ? "Not provided" : p.SellerPhone)</td>
+                <td>
+                    <div><strong>@p.SellerName</strong></div>
+                    @if (!string.IsNullOrWhiteSpace(p.SellerPhone))
+                    {
+                        <div class="mp-meta">Phone: <a href="tel:@p.SellerPhone">@p.SellerPhone</a></div>
+                    }
+                    else
+                    {
+                        <div class="mp-meta">Phone: Not provided</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(p.SellerEmail))
+                    {
+                        <div class="mp-meta">Email: <a href="mailto:@p.SellerEmail">@p.SellerEmail</a></div>
+                    }
+                </td>
             </tr>
         }
         </tbody>

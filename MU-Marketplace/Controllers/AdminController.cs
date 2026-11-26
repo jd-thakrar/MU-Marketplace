@@ -77,113 +77,38 @@ namespace MU_Marketplace.Controllers
             {
                 Session.Remove("AdminUserId");
                 Session.Remove("AdminName");
-                return RedirectToAction("Login");
+                return RedirectToAction("Login", "Account", new { returnUrl = Request != null ? Request.RawUrl : null });
             }
 
             return null;
         }
 
         // ==========================================
-        // 1. ADMIN LOGIN
+        // 1. UNIFIED AUTH REDIRECT & LOGOUT
         // ==========================================
 
         [HttpGet]
         public ActionResult Login()
         {
-            if (Session["AdminUserId"] != null && IsAdmin())
+            if (IsAdmin())
                 return RedirectToAction("Dashboard");
 
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Login(string email, string password)
-        {
-            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
-            {
-                ViewBag.Error = "Please enter email and password.";
-                return View();
-            }
-
-            string normalizedEmail = email.Trim().ToLowerInvariant();
-
-            using (SqlConnection con = new SqlConnection(connectionString))
-            {
-                string query = @"
-                    SELECT UserId, FullName, PasswordHash
-                    FROM Users
-                    WHERE LOWER(Email) = @Email
-                    AND [Role] = 1
-                    AND [Status] = 0";
-
-                int? matchedUserId = null;
-                string matchedFullName = null;
-                string storedHash = null;
-
-                using (SqlCommand cmd = new SqlCommand(query, con))
-                {
-                    cmd.Parameters.Add("@Email", SqlDbType.NVarChar, 150).Value = normalizedEmail;
-                    con.Open();
-
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            matchedUserId = reader.GetInt32(0);
-                            matchedFullName = reader.GetString(1);
-                            storedHash = reader.GetString(2);
-                        }
-                    }
-                }
-
-                if (matchedUserId.HasValue && !string.IsNullOrEmpty(storedHash))
-                {
-                    bool valid = PasswordHasher.Verify(password, storedHash);
-
-                    if (!valid)
-                    {
-                        using (SHA256 sha256 = SHA256.Create())
-                        {
-                            byte[] bytes = Encoding.UTF8.GetBytes(password);
-                            byte[] hash = sha256.ComputeHash(bytes);
-                            string shaHex = BitConverter.ToString(hash).Replace("-", "");
-                            valid = string.Equals(shaHex, storedHash, StringComparison.OrdinalIgnoreCase);
-                        }
-                    }
-
-                    if (valid)
-                    {
-                        using (SqlCommand updateCmd = new SqlCommand(
-                            "UPDATE Users SET LastLoginAt = SYSUTCDATETIME() WHERE UserId = @UserId", con))
-                        {
-                            updateCmd.Parameters.Add("@UserId", SqlDbType.Int).Value = matchedUserId.Value;
-                            updateCmd.ExecuteNonQuery();
-                        }
-
-                        Session["AdminUserId"] = matchedUserId.Value;
-                        Session["AdminName"] = matchedFullName;
-                        return RedirectToAction("Dashboard");
-                    }
-                }
-            }
-
-            ViewBag.Error = "Invalid email or password.";
-            return View();
+            return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("Dashboard", "Admin") });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Logout()
         {
-            Session.Remove("AdminUserId");
-            Session.Remove("AdminName");
-            if (Request.IsAuthenticated)
+            FormsAuthentication.SignOut();
+            if (Session != null)
             {
-                FormsAuthentication.SignOut();
+                Session.Clear();
+                Session.Abandon();
             }
 
-            return RedirectToAction("Login");
+            TempData["Success"] = "You have been logged out.";
+            return RedirectToAction("Login", "Account");
         }
 
         // ==========================================

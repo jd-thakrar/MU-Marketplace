@@ -25,8 +25,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
-    <link href="~/Content/Site.css" rel="stylesheet" type="text/css" />
-    <link href="~/Content/theme.css" rel="stylesheet" type="text/css" />
+    <link href="~/Content/Site.css?v=5" rel="stylesheet" type="text/css" />
+    <link href="~/Content/theme.css?v=6" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
@@ -43,11 +43,13 @@
 
             <nav class="nav-links" aria-label="Main">
                 <a href="~/" class="@active("", true)">Home</a>
-                <a href="~/marketplace" class="@active("/marketplace", false)">Marketplace</a>
+                <a href="~/marketplace" class="@active("/marketplace", true)">Marketplace</a>
                 @if (signedIn)
                 {
+                    <a href="~/marketplace/cart" class="@active("/marketplace/cart", false)">Cart</a>
                     <a href="~/my-listings" class="@active("/my-listings", false)">My Listings</a>
                     <a href="~/my-purchases" class="@active("/my-purchases", false)">My Purchases</a>
+                    <a href="@Url.Action("Profile", "Student")" class="@active("/Student/Profile", false)">Profile</a>
                     if (Session["AdminUserId"] != null)
                     {
                         <a href="@Url.Action("Dashboard", "Admin")">Admin Panel</a>

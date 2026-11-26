@@ -256,6 +256,8 @@
     <script>
         (function () {
             if (typeof Chart === 'undefined') return;
+            Chart.defaults.color = '#A1A1AA';
+            Chart.defaults.borderColor = '#262626';
 
             var statusCtx = document.getElementById('statusChart');
             if (statusCtx) {
@@ -265,17 +267,17 @@
                         labels: ['Pending', 'Approved', 'Rejected', 'Sold', 'Removed'],
                         datasets: [{
                             data: [@statusCounts[0], @statusCounts[1], @statusCounts[2], @statusCounts[3], @statusCounts[4]],
-                            backgroundColor: ['#FFC107', '#16865B', '#D94B4B', '#00A6B2', '#94A3B8'],
+                            backgroundColor: ['#F5A623', '#50E3C2', '#FF4D4F', '#3291FF', '#52525B'],
                             borderWidth: 2,
-                            borderColor: '#FFFFFF'
+                            borderColor: '#0A0A0A'
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '64%',
+                        cutout: '68%',
                         plugins: {
-                            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } }
+                            legend: { position: 'bottom', labels: { color: '#A1A1AA', boxWidth: 10, padding: 14 } }
                         }
                     }
                 });
@@ -290,9 +292,9 @@
                         datasets: [{
                             label: 'Listings',
                             data: [@string.Join(", ", catValues)],
-                            backgroundColor: '#07364B',
-                            hoverBackgroundColor: '#FFC107',
-                            borderRadius: 6
+                            backgroundColor: '#EDEDED',
+                            hoverBackgroundColor: '#3291FF',
+                            borderRadius: 5
                         }]
                     },
                     options: {
@@ -302,8 +304,8 @@
                             legend: { display: false }
                         },
                         scales: {
-                            y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
-                            x: { grid: { display: false } }
+                            y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, color: '#94A3B8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94A3B8' } }
                         }
                     }
                 });

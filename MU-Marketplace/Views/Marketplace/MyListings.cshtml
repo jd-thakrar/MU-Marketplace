@@ -1,15 +1,42 @@
-﻿@model IEnumerable<MU_Marketplace.Models.ViewModels.MyListingViewModel>
+﻿@model MU_Marketplace.Models.ViewModels.MyListingsPageViewModel
 @using MU_Marketplace.Models
 @{
     ViewBag.Title = "My Listings";
 }
 
-<h2>My Listings</h2>
+<div class="mp-page-head">
+    <div>
+        <h2>My Listings</h2>
+        <p class="mp-meta">Track your listed items, sales performance, and buyer pickup contacts.</p>
+    </div>
+    <div class="mp-action-row">
+        <a class="mp-btn mp-btn-primary" href="@Url.Action("Create")">+ New listing</a>
+    </div>
+</div>
+
 @Html.Partial("_Alerts")
 
-<p><a class="mp-btn mp-btn-primary" href="@Url.Action("Create")">+ New listing</a></p>
+<!-- SUMMARY CARDS -->
+<div class="mp-summary-grid">
+    <div class="mp-summary-card">
+        <small>Products Listed</small>
+        <strong>@Model.Summary.TotalListed</strong>
+    </div>
+    <div class="mp-summary-card accent-green">
+        <small>Products Sold</small>
+        <strong>@Model.Summary.TotalSold</strong>
+    </div>
+    <div class="mp-summary-card accent-amber">
+        <small>Pending Review</small>
+        <strong>@Model.Summary.PendingApproval</strong>
+    </div>
+    <div class="mp-summary-card accent-teal">
+        <small>Total Revenue</small>
+        <strong>&#8377;@Model.Summary.TotalRevenue.ToString("N0")</strong>
+    </div>
+</div>
 
-@if (!Model.Any())
+@if (!Model.Listings.Any())
 {
     <p class="mp-empty">You have not listed anything yet.</p>
 }
@@ -26,12 +53,12 @@ else
             </tr>
         </thead>
         <tbody>
-        @foreach (var p in Model)
+        @foreach (var p in Model.Listings)
         {
             <tr>
                 <td>
-                    <a href="@Url.Action("Details", new { id = p.ProductId })">@p.Title</a>
-                    <div class="mp-meta">@p.CategoryName</div>
+                    <a href="@Url.Action("Details", new { id = p.ProductId })"><strong>@p.Title</strong></a>
+                    <div class="mp-meta">@p.CategoryName &middot; Pick from: @(string.IsNullOrWhiteSpace(p.PickupLocation) ? "MU Campus" : p.PickupLocation)</div>
                 </td>
                 <td>&#8377;@p.Price.ToString("N2")</td>
                 <td><span class="mp-badge mp-@p.Status.ToString().ToLower()">@p.Status</span></td>
@@ -39,10 +66,18 @@ else
                 <td>
                     @if (p.Status == ProductStatus.Sold)
                     {
-                        <div>Buyer: @p.BuyerName</div>
+                        <div>Buyer: <strong>@p.BuyerName</strong></div>
                         if (!string.IsNullOrWhiteSpace(p.BuyerPhone))
                         {
-                            <div class="mp-meta">Phone: @p.BuyerPhone</div>
+                            <div class="mp-meta">Phone: <a href="tel:@p.BuyerPhone">@p.BuyerPhone</a></div>
+                        }
+                        else
+                        {
+                            <div class="mp-meta">Phone: Not provided</div>
+                        }
+                        if (!string.IsNullOrWhiteSpace(p.BuyerEmail))
+                        {
+                            <div class="mp-meta">Email: <a href="mailto:@p.BuyerEmail">@p.BuyerEmail</a></div>
                         }
                     }
                     else

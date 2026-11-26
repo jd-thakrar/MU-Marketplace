@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Web;
 using System.Web.Mvc;
 
 namespace MU_Marketplace.Models.ViewModels
@@ -25,6 +26,7 @@ namespace MU_Marketplace.Models.ViewModels
         public string CategoryName { get; set; }
         public string SellerName { get; set; }
         public DateTime CreatedDate { get; set; }
+        public bool HasImage { get; set; }
     }
 
     public class MarketplaceIndexViewModel
@@ -39,6 +41,8 @@ namespace MU_Marketplace.Models.ViewModels
         {
             get { return Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize)); }
         }
+
+        public int CartItemCount { get; set; }
     }
 
     // ---------- Details ----------
@@ -59,6 +63,9 @@ namespace MU_Marketplace.Models.ViewModels
 
         public bool IsOwner { get; set; }
         public bool CanBuy { get; set; }
+        public bool IsInCart { get; set; }
+        public bool IsLoggedIn { get; set; }
+        public bool HasImage { get; set; }
 
         public string ConditionLabel
         {
@@ -101,9 +108,15 @@ namespace MU_Marketplace.Models.ViewModels
         [Range(0, 3, ErrorMessage = "Select a valid condition.")]
         public byte ProductCondition { get; set; } = 2;
 
-        [Display(Name = "Pickup location")]
+        [Required(ErrorMessage = "Please specify where to pick up the item on campus.")]
+        [Display(Name = "Pick from (Campus location)")]
         [StringLength(150)]
         public string PickupLocation { get; set; } = "MU Campus";
+
+        [Display(Name = "Product image (optional)")]
+        public HttpPostedFileBase ImageFile { get; set; }
+
+        public bool HasExistingImage { get; set; }
 
         public SelectList Categories { get; set; }
     }
@@ -116,10 +129,28 @@ namespace MU_Marketplace.Models.ViewModels
         public ProductStatus Status { get; set; }
         public DateTime CreatedDate { get; set; }
         public string CategoryName { get; set; }
+        public string PickupLocation { get; set; }
 
         // Filled only when the item is sold (pickup coordination)
         public string BuyerName { get; set; }
         public string BuyerPhone { get; set; }
+        public string BuyerEmail { get; set; }
+    }
+
+    // ---------- My Listings Summary ----------
+
+    public class MyListingsSummary
+    {
+        public int TotalListed { get; set; }
+        public int TotalSold { get; set; }
+        public int PendingApproval { get; set; }
+        public decimal TotalRevenue { get; set; }
+    }
+
+    public class MyListingsPageViewModel
+    {
+        public MyListingsSummary Summary { get; set; }
+        public List<MyListingViewModel> Listings { get; set; }
     }
 
     // ---------- Buying ----------
@@ -131,7 +162,63 @@ namespace MU_Marketplace.Models.ViewModels
         public string Title { get; set; }
         public decimal AmountPaid { get; set; }
         public DateTime PurchaseDate { get; set; }
+        public string PickupLocation { get; set; }
         public string SellerName { get; set; }
         public string SellerPhone { get; set; }
+        public string SellerEmail { get; set; }
+    }
+
+    // ---------- Cart ----------
+
+    public class CartItemViewModel
+    {
+        public int CartItemId { get; set; }
+        public int ProductId { get; set; }
+        public string Title { get; set; }
+        public decimal Price { get; set; }
+        public string CategoryName { get; set; }
+        public string SellerName { get; set; }
+        public ProductStatus Status { get; set; }
+        public DateTime AddedAt { get; set; }
+    }
+
+    public class CartPageViewModel
+    {
+        public List<CartItemViewModel> Items { get; set; } = new List<CartItemViewModel>();
+        public decimal Total { get; set; }
+        public int AvailableCount { get; set; }
+    }
+}
+
+namespace MU_Marketplace.Models.ViewModels
+{
+    // ---------- Student Profile ----------
+    public class ProfileViewModel
+    {
+        [Required, StringLength(100, MinimumLength = 2)]
+        [Display(Name = "Full Name")]
+        public string FullName { get; set; }
+
+        [Display(Name = "Email")]
+        public string Email { get; set; }   // read-only display
+
+        [StringLength(30)]
+        [Display(Name = "Enrollment No.")]
+        public string EnrollmentNo { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Department")]
+        public string Department { get; set; }
+
+        [StringLength(20)]
+        [Phone]
+        [Display(Name = "Phone Number")]
+        public string PhoneNumber { get; set; }
+
+        // Stats (display only)
+        public int TotalListed { get; set; }
+        public int TotalSold { get; set; }
+        public int TotalPurchased { get; set; }
+        public DateTime MemberSince { get; set; }
     }
 }

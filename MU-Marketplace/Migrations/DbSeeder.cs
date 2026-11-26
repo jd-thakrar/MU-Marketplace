@@ -24,8 +24,8 @@ namespace MU_Marketplace.Migrations
             EnsureCategory(context, "Other", "Other permitted student marketplace items");
             context.SaveChanges();
 
-            var admin = EnsureUser(context, "admin@example.com", "Admin@123", "MU Admin", UserRole.Admin);
-            var student = EnsureUser(context, "user@example.com", "User@123", "Demo Student", UserRole.Student);
+            var admin = EnsureUser(context, "admin@example.com", "Admin@123", "MU Admin", UserRole.Admin, "98765 00001");
+            var student = EnsureUser(context, "user@example.com", "User@123", "Demo Student", UserRole.Student, "98765 00002");
             context.SaveChanges();
 
             EnsureProduct(context, student, "Books", "Engineering Mathematics by B.S. Grewal (44th ed.)",
@@ -66,16 +66,25 @@ namespace MU_Marketplace.Migrations
             });
         }
 
-        private static User EnsureUser(ApplicationDbContext context, string email, string password, string fullName, UserRole role)
+        private static User EnsureUser(ApplicationDbContext context, string email, string password, string fullName, UserRole role, string phoneNumber = null)
         {
             var user = context.Users.FirstOrDefault(u => u.Email == email)
                        ?? context.Users.Local.FirstOrDefault(u => u.Email == email);
-            if (user != null) return user;
+            if (user != null)
+            {
+                // Back-fill phone if missing
+                if (phoneNumber != null && string.IsNullOrWhiteSpace(user.PhoneNumber))
+                {
+                    user.PhoneNumber = phoneNumber;
+                }
+                return user;
+            }
 
             user = new User
             {
                 Email = email,
                 FullName = fullName,
+                PhoneNumber = phoneNumber,
                 PasswordHash = PasswordHasher.Hash(password),
                 Role = role,
                 Status = UserStatus.Active,

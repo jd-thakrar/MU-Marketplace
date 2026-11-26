@@ -78,6 +78,7 @@
 
                 <thead>
                     <tr>
+                        <th></th>
                         <th>ID</th>
                         <th>Product</th>
                         <th>Category</th>
@@ -139,6 +140,13 @@
                             string soldDate = item["PurchaseDate"] == DBNull.Value ? "" : Convert.ToDateTime(item["PurchaseDate"]).ToString("dd MMM yyyy, hh:mm tt");
 
                             <tr>
+                                <td>
+                                    <img src="@Url.Action("Image", "Marketplace", new { id = productId })"
+                                         alt="@title"
+                                         class="admin-thumb"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+                                    <span class="admin-thumb-placeholder" style="display:none">&#128247;</span>
+                                </td>
                                 <td>#@productId</td>
 
                                 <td>

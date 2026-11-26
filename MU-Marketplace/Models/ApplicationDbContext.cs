@@ -9,6 +9,8 @@ namespace MU_Marketplace.Models
         public DbSet<User> Users { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<Cart> Carts { get; set; }
+        public DbSet<CartItem> CartItems { get; set; }
         public DbSet<Purchase> Purchases { get; set; }
         public DbSet<Report> Reports { get; set; }
 
@@ -72,6 +74,27 @@ namespace MU_Marketplace.Models
                 .HasForeignKey(r => r.ReviewedBy)
                 .WillCascadeOnDelete(false);
 
+            // Carts -> Users
+            modelBuilder.Entity<Cart>()
+                .HasRequired(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .WillCascadeOnDelete(false);
+
+            // CartItems -> Cart
+            modelBuilder.Entity<CartItem>()
+                .HasRequired(ci => ci.Cart)
+                .WithMany(c => c.CartItems)
+                .HasForeignKey(ci => ci.CartId)
+                .WillCascadeOnDelete(true);
+
+            // CartItems -> Product
+            modelBuilder.Entity<CartItem>()
+                .HasRequired(ci => ci.Product)
+                .WithMany()
+                .HasForeignKey(ci => ci.ProductId)
+                .WillCascadeOnDelete(false);
+
             // DECIMAL(18,2)
             modelBuilder.Entity<Product>().Property(p => p.Price).HasPrecision(18, 2);
             modelBuilder.Entity<Purchase>().Property(p => p.PurchasePrice).HasPrecision(18, 2);
@@ -93,6 +116,10 @@ namespace MU_Marketplace.Models
 
             modelBuilder.Entity<Report>().Property(r => r.ReviewedAt).HasColumnType("datetime2");
             modelBuilder.Entity<Report>().Property(r => r.CreatedAt).HasColumnType("datetime2");
+
+            modelBuilder.Entity<Cart>().Property(c => c.CreatedAt).HasColumnType("datetime2");
+            modelBuilder.Entity<Cart>().Property(c => c.UpdatedAt).HasColumnType("datetime2");
+            modelBuilder.Entity<CartItem>().Property(ci => ci.AddedAt).HasColumnType("datetime2");
         }
     }
 }

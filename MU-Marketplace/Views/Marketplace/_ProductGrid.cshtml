@@ -12,6 +12,16 @@ else
         @foreach (var p in Model.Products)
         {
             <a class="mp-card" href="@Url.Action("Details", new { id = p.ProductId })">
+                <div class="mp-card-thumb">
+                    @if (p.HasImage)
+                    {
+                        <img src="@Url.Action("Image", "Marketplace", new { id = p.ProductId })" alt="@p.Title" loading="lazy" />
+                    }
+                    else
+                    {
+                        <span class="mp-card-placeholder">@p.CategoryName</span>
+                    }
+                </div>
                 <div class="mp-card-cat">@p.CategoryName</div>
                 <h3>@p.Title</h3>
                 <div class="mp-price">&#8377;@p.Price.ToString("N2")</div>

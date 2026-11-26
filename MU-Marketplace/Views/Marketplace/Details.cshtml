@@ -2,12 +2,19 @@
 @using MU_Marketplace.Models
 @{
     ViewBag.Title = Model.Title;
+    string returnToDetails = Url.Action("Details", "Marketplace", new { id = Model.ProductId });
 }
 
 @Html.Partial("_Alerts")
 <a href="@Url.Action("Index")">&larr; Back to marketplace</a>
 
 <div class="mp-detail">
+    @if (Model.HasImage)
+    {
+        <div class="mp-detail-thumb">
+            <img src="@Url.Action("Image", "Marketplace", new { id = Model.ProductId })" alt="@Model.Title" />
+        </div>
+    }
     <div class="mp-card-cat">@Model.CategoryName</div>
     <h2>
         @Model.Title
@@ -16,7 +23,7 @@
 
     <div class="mp-price mp-price-lg">&#8377;@Model.Price.ToString("N2")</div>
     <p class="mp-meta">Listed by @Model.SellerName on @Model.CreatedDate.ToString("dd MMM yyyy")</p>
-    <p class="mp-meta">Condition: @Model.ConditionLabel &middot; Pickup: @Model.PickupLocation</p>
+    <p class="mp-meta">Condition: <strong>@Model.ConditionLabel</strong> &middot; Pick from: <strong>@Model.PickupLocation</strong></p>
 
     @if (!string.IsNullOrWhiteSpace(Model.Description))
     {
@@ -25,11 +32,39 @@
 
     @if (Model.CanBuy)
     {
-        using (Html.BeginForm("Buy", "Marketplace", new { id = Model.ProductId }, FormMethod.Post,
-               new { onsubmit = "return confirm('Confirm purchase of this item?');" }))
+        if (Model.IsLoggedIn)
         {
-            @Html.AntiForgeryToken()
-            <button type="submit" class="mp-btn mp-btn-primary">Buy now</button>
+            <div class="mp-action-row" style="margin-top: 18px;">
+                @if (Model.IsInCart)
+                {
+                    <a href="@Url.Action("Cart", "Marketplace")" class="mp-btn">In Cart &middot; View Cart</a>
+                }
+                else
+                {
+                    using (Html.BeginForm("AddToCart", "Marketplace", new { id = Model.ProductId }, FormMethod.Post, new { @class = "mp-inline" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="mp-btn mp-btn-amber">+ Add to Cart</button>
+                    }
+                }
+
+                @using (Html.BeginForm("Buy", "Marketplace", new { id = Model.ProductId }, FormMethod.Post,
+                       new { @class = "mp-inline", onsubmit = "return confirm('Confirm direct purchase of this item?');" }))
+                {
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="mp-btn mp-btn-primary">Buy Now</button>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="mp-guest-cta">
+                <p class="mp-meta" style="margin:0 0 10px;">Sign in with your campus account to add this item to your cart or purchase it.</p>
+                <div class="mp-action-row">
+                    <a href="@Url.Action("Login", "Account", new { ReturnUrl = returnToDetails })" class="mp-btn mp-btn-amber">Sign in to Add to Cart</a>
+                    <a href="@Url.Action("Login", "Account", new { ReturnUrl = returnToDetails })" class="mp-btn mp-btn-primary">Sign in to Buy Now</a>
+                </div>
+            </div>
         }
     }
     else if (Model.Status == ProductStatus.Sold)
@@ -42,7 +77,7 @@
             <a href="@Url.Action("MyListings")">Manage my listings</a></p>
     }
 
-    @if (!Model.IsOwner && (Model.Status == ProductStatus.Approved || Model.Status == ProductStatus.Sold))
+    @if (Model.IsLoggedIn && !Model.IsOwner && (Model.Status == ProductStatus.Approved || Model.Status == ProductStatus.Sold))
     {
         <details style="margin-top:24px;">
             <summary class="mp-hint" style="cursor:pointer;">Report this listing</summary>

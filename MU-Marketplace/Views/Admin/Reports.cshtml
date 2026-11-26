@@ -524,6 +524,8 @@ else
             (function () {
                 var ctx = document.getElementById('salesCategoryChart');
                 if (!ctx || typeof Chart === 'undefined') return;
+                Chart.defaults.color = '#A1A1AA';
+                Chart.defaults.borderColor = '#262626';
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -531,9 +533,9 @@ else
                         datasets: [{
                             label: 'Revenue (₹)',
                             data: [@string.Join(", ", salesCatValues)],
-                            backgroundColor: '#16A34A',
-                            hoverBackgroundColor: '#FFC107',
-                            borderRadius: 6
+                            backgroundColor: '#50E3C2',
+                            hoverBackgroundColor: '#3291FF',
+                            borderRadius: 5
                         }]
                     },
                     options: {
@@ -541,8 +543,8 @@ else
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { beginAtZero: true },
-                            x: { grid: { display: false } }
+                            y: { beginAtZero: true, ticks: { color: '#94A3B8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94A3B8' } }
                         }
                     }
                 });

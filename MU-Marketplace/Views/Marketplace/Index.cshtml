@@ -3,7 +3,27 @@
     ViewBag.Title = "Marketplace";
 }
 
-<h2>Marketplace</h2>
+<div class="mp-page-head">
+    <div>
+        <h2>Marketplace</h2>
+        <p class="mp-meta">Browse campus listings from Marwadi University students. Sign in only when you are ready to add to cart or buy.</p>
+    </div>
+    <div class="mp-action-row">
+        @if (Request.IsAuthenticated)
+        {
+            <a class="mp-btn" href="@Url.Action("Cart", "Marketplace")">
+                Cart @(Model.CartItemCount > 0 ? "(" + Model.CartItemCount + ")" : "")
+            </a>
+            <a class="mp-btn mp-btn-primary" href="@Url.Action("Create", "Marketplace")">+ Sell an Item</a>
+        }
+        else
+        {
+            <a class="mp-btn" href="@Url.Action("Login", "Account", new { ReturnUrl = Url.Action("Cart", "Marketplace") })">View Cart</a>
+            <a class="mp-btn mp-btn-primary" href="@Url.Action("Login", "Account", new { ReturnUrl = Url.Action("Create", "Marketplace") })">Sign in to Sell</a>
+        }
+    </div>
+</div>
+
 @Html.Partial("_Alerts")
 
 <form id="filterForm" class="mp-filters" method="get"
