@@ -1,7 +1,574 @@
-﻿
+﻿@using System.Data
+
 @{
-    ViewBag.Title = "Reports";
+    ViewBag.PageTitle = "Reports & Analytics";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable reports = Model as DataTable;
+    DataTable salesByCategory = ViewBag.SalesByCategory as DataTable;
+    DataTable topSellers = ViewBag.TopSellers as DataTable;
+    DataTable studentReport = ViewBag.StudentReport as DataTable;
+    DataTable inventoryByCategory = ViewBag.InventoryByCategory as DataTable;
+
+    string statusFilter = Convert.ToString(ViewBag.StatusFilter ?? "all");
+    string activeTab = Convert.ToString(ViewBag.ActiveTab ?? "moderation");
+
+    int salesTotalOrders = ViewBag.SalesTotalOrders != null ? Convert.ToInt32(ViewBag.SalesTotalOrders) : 0;
+    decimal salesTotalRevenue = ViewBag.SalesTotalRevenue != null ? Convert.ToDecimal(ViewBag.SalesTotalRevenue) : 0m;
+    decimal salesAvgOrder = ViewBag.SalesAvgOrder != null ? Convert.ToDecimal(ViewBag.SalesAvgOrder) : 0m;
+    decimal salesHighestOrder = ViewBag.SalesHighestOrder != null ? Convert.ToDecimal(ViewBag.SalesHighestOrder) : 0m;
+
+    var salesCatLabels = new List<string>();
+    var salesCatValues = new List<decimal>();
+    if (salesByCategory != null)
+    {
+        foreach (DataRow r in salesByCategory.Rows)
+        {
+            salesCatLabels.Add("'" + HttpUtility.JavaScriptStringEncode(Convert.ToString(r["CategoryName"])) + "'");
+            salesCatValues.Add(Convert.ToDecimal(r["Revenue"]));
+        }
+    }
 }
 
-<h2>Reports</h2>
+<div class="page-heading">
+    <div>
+        <h1>Reports &amp; Analytics Center</h1>
+        <p>Moderation queue, sales performance, student activity, and downloadable reports.</p>
+    </div>
+    <div class="action-group no-print">
+        <button type="button" class="btn btn-secondary" onclick="window.print()">&#128424; Print / Save PDF</button>
+        @if (activeTab == "sales")
+        {
+            <a href="@Url.Action("ExportOrdersCsv", "Admin")" class="btn btn-amber">&#8681; Download Sales CSV</a>
+        }
+        else if (activeTab == "students")
+        {
+            <a href="@Url.Action("ExportUsersCsv", "Admin")" class="btn btn-amber">&#8681; Download Students CSV</a>
+        }
+        else if (activeTab == "inventory")
+        {
+            <a href="@Url.Action("ExportListingsCsv", "Admin")" class="btn btn-amber">&#8681; Download Inventory CSV</a>
+        }
+        else
+        {
+            <a href="@Url.Action("ExportReportsCsv", "Admin")" class="btn btn-amber">&#8681; Download Reports CSV</a>
+        }
+    </div>
+</div>
 
+<!-- SEGMENTED REPORT TABS -->
+<div class="report-tabs no-print">
+    <a href="@Url.Action("Reports", new { tab = "moderation", statusFilter = statusFilter })"
+       class="report-tab @(activeTab == "moderation" ? "active" : "")">
+        &#9873; Moderation Queue
+    </a>
+    <a href="@Url.Action("Reports", new { tab = "sales" })"
+       class="report-tab @(activeTab == "sales" ? "active" : "")">
+        &#8377; Sales Report
+    </a>
+    <a href="@Url.Action("Reports", new { tab = "students" })"
+       class="report-tab @(activeTab == "students" ? "active" : "")">
+        &#9817; Students Report
+    </a>
+    <a href="@Url.Action("Reports", new { tab = "inventory" })"
+       class="report-tab @(activeTab == "inventory" ? "active" : "")">
+        &#9636; Inventory Report
+    </a>
+</div>
+
+@if (activeTab == "sales")
+{
+    <!-- SALES KPI STRIP -->
+    <div class="stats-grid">
+        <div class="stat-card accent-green">
+            <div class="stat-icon green">&#8377;</div>
+            <div class="stat-info">
+                <small>Total Revenue</small>
+                <h2>&#8377;@salesTotalRevenue.ToString("N0")</h2>
+            </div>
+        </div>
+        <div class="stat-card accent-teal">
+            <div class="stat-icon">&#9733;</div>
+            <div class="stat-info">
+                <small>Completed Orders</small>
+                <h2>@salesTotalOrders</h2>
+            </div>
+        </div>
+        <div class="stat-card accent-amber">
+            <div class="stat-icon gold">&#8776;</div>
+            <div class="stat-info">
+                <small>Average Order</small>
+                <h2>&#8377;@salesAvgOrder.ToString("N0")</h2>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">&#8593;</div>
+            <div class="stat-info">
+                <small>Highest Single Sale</small>
+                <h2>&#8377;@salesHighestOrder.ToString("N0")</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>Revenue by Category (&#8377;)</h3>
+                <span class="panel-count">All Time</span>
+            </div>
+            <div class="panel-body">
+                <div class="chart-box">
+                    <canvas id="salesCategoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <h3>Sales Breakdown by Category</h3>
+                <span class="panel-count">@(salesByCategory == null ? 0 : salesByCategory.Rows.Count) categories</span>
+            </div>
+            <div class="panel-body">
+                <div class="table-responsive">
+                    <table class="admin-table" style="min-width:380px;">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Orders</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (salesByCategory != null && salesByCategory.Rows.Count > 0)
+                            {
+                                foreach (DataRow row in salesByCategory.Rows)
+                                {
+                                    <tr>
+                                        <td><strong>@row["CategoryName"]</strong></td>
+                                        <td>@row["OrdersCount"]</td>
+                                        <td><strong>&#8377;@Convert.ToDecimal(row["Revenue"]).ToString("N2")</strong></td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-header">
+            <h3>Top Sellers Leaderboard</h3>
+            <span class="panel-count">Top 10</span>
+        </div>
+        <div class="panel-body">
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Seller</th>
+                            <th>Email</th>
+                            <th>Items Sold</th>
+                            <th>Total Earned</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (topSellers != null && topSellers.Rows.Count > 0)
+                        {
+                            foreach (DataRow row in topSellers.Rows)
+                            {
+                                <tr>
+                                    <td><strong>@row["FullName"]</strong></td>
+                                    <td>@row["Email"]</td>
+                                    <td>@row["ItemsSold"]</td>
+                                    <td><strong>&#8377;@Convert.ToDecimal(row["TotalEarned"]).ToString("N2")</strong></td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" style="text-align:center;padding:28px;color:#64748B;">No completed sales yet.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else if (activeTab == "students")
+{
+    <div class="panel-card">
+        <div class="panel-header">
+            <h3>Student Engagement &amp; Activity Report</h3>
+            <span class="panel-count">@(studentReport == null ? 0 : studentReport.Rows.Count) students</span>
+        </div>
+        <div class="panel-body">
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Status</th>
+                            <th>Listings</th>
+                            <th>Sold</th>
+                            <th>Purchases</th>
+                            <th>Total Spent</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (studentReport != null && studentReport.Rows.Count > 0)
+                        {
+                            foreach (DataRow row in studentReport.Rows)
+                            {
+                                int st = Convert.ToInt32(row["Status"]);
+                                string lastLogin = row["LastLoginAt"] == DBNull.Value
+                                    ? "Never"
+                                    : Convert.ToDateTime(row["LastLoginAt"]).ToString("dd MMM yyyy");
+                                <tr>
+                                    <td>
+                                        <strong>@row["FullName"]</strong><br />
+                                        <small>@row["Email"]</small>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge @(st == 0 ? "status-active" : "status-suspended")">
+                                            @(st == 0 ? "Active" : "Suspended")
+                                        </span>
+                                    </td>
+                                    <td>@row["TotalListings"]</td>
+                                    <td>@row["SoldCount"]</td>
+                                    <td>@row["PurchasesCount"]</td>
+                                    <td><strong>&#8377;@Convert.ToDecimal(row["TotalSpent"]).ToString("N2")</strong></td>
+                                    <td>@lastLogin</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align:center;padding:28px;color:#64748B;">No student records found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else if (activeTab == "inventory")
+{
+    <div class="panel-card">
+        <div class="panel-header">
+            <h3>Inventory &amp; Moderation Matrix by Category</h3>
+            <span class="panel-count">@(inventoryByCategory == null ? 0 : inventoryByCategory.Rows.Count) categories</span>
+        </div>
+        <div class="panel-body">
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Pending</th>
+                            <th>Approved</th>
+                            <th>Rejected</th>
+                            <th>Sold</th>
+                            <th>Removed</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (inventoryByCategory != null && inventoryByCategory.Rows.Count > 0)
+                        {
+                            foreach (DataRow row in inventoryByCategory.Rows)
+                            {
+                                <tr>
+                                    <td><strong>@row["CategoryName"]</strong></td>
+                                    <td><span class="status-badge status-pending">@row["PendingCount"]</span></td>
+                                    <td><span class="status-badge status-approved">@row["ApprovedCount"]</span></td>
+                                    <td><span class="status-badge status-rejected">@row["RejectedCount"]</span></td>
+                                    <td><span class="status-badge status-sold">@row["SoldCount"]</span></td>
+                                    <td><span class="status-badge status-removed">@row["RemovedCount"]</span></td>
+                                    <td><strong>@row["TotalCount"]</strong></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- MODERATION REPORTS QUEUE -->
+    <div class="panel-card">
+
+        <div class="filter-bar no-print">
+            <div class="filter-tabs">
+                <a href="@Url.Action("Reports", new { tab = "moderation", statusFilter = "all" })"
+                   class="btn @(statusFilter == "all" ? "btn-amber" : "btn-secondary")">
+                    All Reports
+                </a>
+                <a href="@Url.Action("Reports", new { tab = "moderation", statusFilter = "pending" })"
+                   class="btn @(statusFilter == "pending" ? "btn-amber" : "btn-secondary")">
+                    Pending
+                </a>
+                <a href="@Url.Action("Reports", new { tab = "moderation", statusFilter = "resolved" })"
+                   class="btn @(statusFilter == "resolved" ? "btn-amber" : "btn-secondary")">
+                    Resolved
+                </a>
+                <a href="@Url.Action("Reports", new { tab = "moderation", statusFilter = "ignored" })"
+                   class="btn @(statusFilter == "ignored" ? "btn-amber" : "btn-secondary")">
+                    Ignored
+                </a>
+            </div>
+            <span class="panel-count">@(reports == null ? 0 : reports.Rows.Count) reports</span>
+        </div>
+
+        <div class="panel-body">
+
+            <div class="table-responsive">
+
+                <table class="admin-table">
+
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Product</th>
+                            <th>Reported By</th>
+                            <th>Reason</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th class="no-print">Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        @if (reports != null && reports.Rows.Count > 0)
+                        {
+                            foreach (DataRow report in reports.Rows)
+                            {
+                                int reportId = Convert.ToInt32(report["ReportId"]);
+                                int status = Convert.ToInt32(report["Status"]);
+
+                                string statusName =
+                                    status == 0 ? "Pending" :
+                                    status == 1 ? "Resolved" : "Ignored";
+
+                                string statusClass =
+                                    status == 0 ? "status-pending" :
+                                    status == 1 ? "status-resolved" : "status-ignored";
+
+                                string productTitle = Convert.ToString(report["ProductTitle"]);
+                                string reason = Convert.ToString(report["Reason"]);
+                                string reporterName = Convert.ToString(report["ReporterName"]);
+                                string adminNotes = report["AdminNotes"] == DBNull.Value ? "" : Convert.ToString(report["AdminNotes"]);
+
+                                <tr>
+                                    <td>#@reportId</td>
+
+                                    <td>
+                                        <strong>@productTitle</strong><br />
+                                        <small>Product #@report["ProductId"]</small>
+                                    </td>
+
+                                    <td>
+                                        @reporterName<br />
+                                        <small>@report["ReporterEmail"]</small>
+                                    </td>
+
+                                    <td>@reason</td>
+
+                                    <td>@Convert.ToDateTime(report["CreatedAt"]).ToString("dd MMM yyyy")</td>
+
+                                    <td>
+                                        <span class="status-badge @statusClass">@statusName</span>
+                                    </td>
+
+                                    <td class="no-print">
+                                        @if (status == 0)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-amber btn-sm"
+                                                    onclick="openReportModal(
+                                                        @reportId,
+                                                        '@HttpUtility.JavaScriptStringEncode(productTitle)',
+                                                        '@HttpUtility.JavaScriptStringEncode(reason)',
+                                                        '@HttpUtility.JavaScriptStringEncode(reporterName)')">
+                                                Review
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-secondary btn-sm"
+                                                    onclick="openReportDetailsModal(
+                                                        '@HttpUtility.JavaScriptStringEncode(productTitle)',
+                                                        '@HttpUtility.JavaScriptStringEncode(reporterName)',
+                                                        '@HttpUtility.JavaScriptStringEncode(reason)',
+                                                        '@statusName',
+                                                        '@HttpUtility.JavaScriptStringEncode(adminNotes)')">
+                                                Details
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align:center;padding:30px;">
+                                    No moderation reports found.
+                                </td>
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+<!-- REPORT REVIEW MODAL -->
+<div class="modal-overlay" id="reportModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Review Report</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeReportModal()">&#10005;</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="detail-grid">
+                <div><small>Reported Product</small><strong id="reportProduct"></strong></div>
+                <div><small>Reported By</small><strong id="reporterName"></strong></div>
+            </div>
+
+            <div class="form-group">
+                <label>Report Reason</label>
+                <p id="reportReason" style="color:#991B1B;margin:0;"></p>
+            </div>
+
+            @using (Html.BeginForm("ReviewReport", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="reportId" id="reviewReportId" />
+
+                <div class="form-group">
+                    <label>Admin Notes (optional)</label>
+                    <textarea name="adminNotes" class="form-control" maxlength="500" placeholder="Enter moderation remarks..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Action</label>
+                    <select name="decision" class="form-control" required>
+                        <option value="">Select an action</option>
+                        <option value="resolve">Resolve Report (keep product)</option>
+                        <option value="ignore">Ignore Report</option>
+                        <option value="remove">Remove Reported Product</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeReportModal()">Cancel</button>
+                    <button type="submit"
+                            class="btn btn-primary"
+                            onclick="return confirm('Submit this moderation decision?');">
+                        Submit Decision
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- REPORT DETAILS MODAL -->
+<div class="modal-overlay" id="reportDetailsModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Report Details</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('reportDetailsModal').classList.remove('show')">&#10005;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-grid">
+                <div><small>Product</small><strong id="detRepProduct"></strong></div>
+                <div><small>Reporter</small><strong id="detRepReporter"></strong></div>
+                <div><small>Status</small><strong id="detRepStatus"></strong></div>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <p id="detRepReason" style="margin:0;color:#64748B;"></p>
+            </div>
+            <div class="form-group">
+                <label>Admin Notes</label>
+                <p id="detRepNotes" style="margin:0;color:#64748B;"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    @if (activeTab == "sales")
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+        <script>
+            (function () {
+                var ctx = document.getElementById('salesCategoryChart');
+                if (!ctx || typeof Chart === 'undefined') return;
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: [@Html.Raw(string.Join(", ", salesCatLabels))],
+                        datasets: [{
+                            label: 'Revenue (₹)',
+                            data: [@string.Join(", ", salesCatValues)],
+                            backgroundColor: '#16A34A',
+                            hoverBackgroundColor: '#FFC107',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            })();
+        </script>
+    }
+    <script>
+        function openReportModal(id, product, reason, reporter) {
+            document.getElementById("reviewReportId").value = id;
+            document.getElementById("reportProduct").textContent = product;
+            document.getElementById("reportReason").textContent = reason;
+            document.getElementById("reporterName").textContent = reporter;
+            document.getElementById("reportModal").classList.add("show");
+        }
+
+        function closeReportModal() {
+            document.getElementById("reportModal").classList.remove("show");
+        }
+
+        function openReportDetailsModal(product, reporter, reason, status, notes) {
+            document.getElementById("detRepProduct").textContent = product;
+            document.getElementById("detRepReporter").textContent = reporter;
+            document.getElementById("detRepStatus").textContent = status;
+            document.getElementById("detRepReason").textContent = reason;
+            document.getElementById("detRepNotes").textContent = notes || "No admin notes.";
+            document.getElementById("reportDetailsModal").classList.add("show");
+        }
+    </script>
+}

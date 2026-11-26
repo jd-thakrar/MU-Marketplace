@@ -1,7 +1,195 @@
-﻿
+﻿@using System.Data
+
 @{
-    ViewBag.Title = "Categories";
+    ViewBag.PageTitle = "Categories";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable categories = Model as DataTable;
 }
 
-<h2>Categories</h2>
+<div class="page-heading">
+    <div>
+        <h1>Manage Categories</h1>
+        <p>Create, edit, or deactivate marketplace categories.</p>
+    </div>
+    <button type="button" class="btn btn-amber" onclick="openAddModal()">+ Add Category</button>
+</div>
 
+<div class="panel-card">
+
+    <div class="panel-header">
+        <h3>Marketplace Categories</h3>
+        <span class="panel-count">@(categories == null ? 0 : categories.Rows.Count) categories</span>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="table-responsive">
+
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category Name</th>
+                        <th>Description</th>
+                        <th>Listings</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (categories != null && categories.Rows.Count > 0)
+                    {
+                        foreach (DataRow cat in categories.Rows)
+                        {
+                            int catId = Convert.ToInt32(cat["CategoryId"]);
+                            string catName = Convert.ToString(cat["CategoryName"]);
+                            string catDesc = cat["Description"] == DBNull.Value ? "" : Convert.ToString(cat["Description"]);
+                            bool isActive = Convert.ToBoolean(cat["IsActive"]);
+                            int productCount = Convert.ToInt32(cat["ProductCount"]);
+
+                            <tr>
+                                <td>#@catId</td>
+                                <td><strong>@catName</strong></td>
+                                <td>@(string.IsNullOrWhiteSpace(catDesc) ? "No description" : catDesc)</td>
+                                <td>@productCount</td>
+                                <td>
+                                    @if (isActive)
+                                    {
+                                        <span class="status-badge status-active">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-suspended">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="action-group">
+                                        <button type="button"
+                                                class="btn btn-secondary btn-sm"
+                                                onclick="openEditModal(
+                                                    @catId,
+                                                    '@HttpUtility.JavaScriptStringEncode(catName)',
+                                                    '@HttpUtility.JavaScriptStringEncode(catDesc)')">
+                                            Edit
+                                        </button>
+
+                                        @using (Html.BeginForm("ToggleCategoryStatus", "Admin", FormMethod.Post))
+                                        {
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="categoryId" value="@catId" />
+                                            if (isActive)
+                                            {
+                                                <button type="submit" name="isActive" value="false" class="btn btn-danger btn-sm">
+                                                    Deactivate
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" name="isActive" value="true" class="btn btn-success btn-sm">
+                                                    Activate
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" style="text-align:center;padding:30px;">No categories found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal-overlay" id="addCategoryModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Add Category</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddModal()">&#10005;</button>
+        </div>
+        <div class="modal-body">
+            @using (Html.BeginForm("AddCategory", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+
+                <div class="form-group">
+                    <label for="addCategoryName">Category Name</label>
+                    <input type="text" id="addCategoryName" name="categoryName" class="form-control" maxlength="100" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="addCategoryDesc">Description (optional)</label>
+                    <textarea id="addCategoryDesc" name="description" class="form-control" rows="3" maxlength="500"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" class="btn btn-amber">Save Category</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- EDIT CATEGORY MODAL -->
+<div class="modal-overlay" id="editCategoryModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Edit Category</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeEditModal()">&#10005;</button>
+        </div>
+        <div class="modal-body">
+            @using (Html.BeginForm("UpdateCategory", "Admin", FormMethod.Post))
+            {
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="categoryId" id="editCategoryId" />
+
+                <div class="form-group">
+                    <label for="editCategoryName">Category Name</label>
+                    <input type="text" id="editCategoryName" name="categoryName" class="form-control" maxlength="100" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="editCategoryDesc">Description (optional)</label>
+                    <textarea id="editCategoryDesc" name="description" class="form-control" rows="3" maxlength="500"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Category</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function openAddModal() {
+            document.getElementById("addCategoryModal").classList.add("show");
+        }
+        function closeAddModal() {
+            document.getElementById("addCategoryModal").classList.remove("show");
+        }
+        function openEditModal(id, name, desc) {
+            document.getElementById("editCategoryId").value = id;
+            document.getElementById("editCategoryName").value = name;
+            document.getElementById("editCategoryDesc").value = desc || "";
+            document.getElementById("editCategoryModal").classList.add("show");
+        }
+        function closeEditModal() {
+            document.getElementById("editCategoryModal").classList.remove("show");
+        }
+    </script>
+}

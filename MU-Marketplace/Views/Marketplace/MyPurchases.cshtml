@@ -1,7 +1,39 @@
-﻿
+﻿@model IEnumerable<MU_Marketplace.Models.ViewModels.PurchaseHistoryViewModel>
 @{
-    ViewBag.Title = "MyPurchases";
+    ViewBag.Title = "My Purchases";
 }
 
-<h2>MyPurchases</h2>
+<h2>My Purchases</h2>
+@Html.Partial("_Alerts")
 
+@if (!Model.Any())
+{
+    <p class="mp-empty">You have not bought anything yet.
+        <a href="@Url.Action("Index")">Browse the marketplace</a></p>
+}
+else
+{
+    <table class="mp-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Paid</th>
+                <th>Date</th>
+                <th>Seller</th>
+                <th>Seller phone</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var p in Model)
+        {
+            <tr>
+                <td><a href="@Url.Action("Details", new { id = p.ProductId })">@p.Title</a></td>
+                <td>&#8377;@p.AmountPaid.ToString("N2")</td>
+                <td>@p.PurchaseDate.ToString("dd MMM yyyy, hh:mm tt")</td>
+                <td>@p.SellerName</td>
+                <td>@(string.IsNullOrWhiteSpace(p.SellerPhone) ? "Not provided" : p.SellerPhone)</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,40 @@
+﻿@model MU_Marketplace.Models.ViewModels.MarketplaceIndexViewModel
+
+@if (!Model.Products.Any())
+{
+    <p class="mp-empty">No items found. Try a different search or filter.</p>
+}
+else
+{
+    <p class="mp-meta">@Model.TotalItems item(s) found</p>
+
+    <div class="mp-grid">
+        @foreach (var p in Model.Products)
+        {
+            <a class="mp-card" href="@Url.Action("Details", new { id = p.ProductId })">
+                <div class="mp-card-cat">@p.CategoryName</div>
+                <h3>@p.Title</h3>
+                <div class="mp-price">&#8377;@p.Price.ToString("N2")</div>
+                <div class="mp-meta">by @p.SellerName &middot; @p.CreatedDate.ToString("dd MMM yyyy")</div>
+            </a>
+        }
+    </div>
+
+    if (Model.TotalPages > 1)
+    {
+        <div class="mp-pager">
+            @if (Model.Filter.Page > 1)
+            {
+                <a href="#" data-page="@(Model.Filter.Page - 1)">&laquo; Prev</a>
+            }
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <a href="#" data-page="@i" class="@(i == Model.Filter.Page ? "active" : "")">@i</a>
+            }
+            @if (Model.Filter.Page < Model.TotalPages)
+            {
+                <a href="#" data-page="@(Model.Filter.Page + 1)">Next &raquo;</a>
+            }
+        </div>
+    }
+}

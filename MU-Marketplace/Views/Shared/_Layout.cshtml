@@ -1,19 +1,124 @@
-﻿<!DOCTYPE html>
-<html>
+﻿@{
+    string path = (Request.Path ?? "/").TrimEnd('/').ToLowerInvariant();
+    Func<string, bool, string> active = (prefix, exact) =>
+        (exact ? path == prefix : (path == prefix || path.StartsWith(prefix + "/"))) ? "is-active" : null;
+
+    bool signedIn = Request.IsAuthenticated;
+    string displayName = signedIn ? User.Identity.Name : null;
+    var formsId = User.Identity as System.Web.Security.FormsIdentity;
+    if (formsId != null && !string.IsNullOrWhiteSpace(formsId.Ticket.UserData))
+    {
+        displayName = formsId.Ticket.UserData;
+    }
+    string initials = string.IsNullOrWhiteSpace(displayName) ? "?" :
+        string.Concat(displayName.Split(new[] { ' ', '@', '.' }, StringSplitOptions.RemoveEmptyEntries)
+                                 .Take(2).Select(s => char.ToUpperInvariant(s[0])));
+    bool fullWidth = ViewBag.FullWidth == true;
+}
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FFC107" />
     <title>@ViewBag.Title - MU-Marketplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="~/Content/Site.css" rel="stylesheet" type="text/css" />
+    <link href="~/Content/theme.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
 
-    <header>
-        <h1>MU-Marketplace</h1>
+    <header class="site-header">
+        <div class="navbar glass">
+            <a class="brand" href="~/" aria-label="MU-Marketplace home">
+                <span class="brand-mark">MU</span>
+                <span>Marketplace</span>
+            </a>
+
+            <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu" />
+            <label for="nav-toggle" class="nav-burger" aria-hidden="true"><span></span></label>
+
+            <nav class="nav-links" aria-label="Main">
+                <a href="~/" class="@active("", true)">Home</a>
+                <a href="~/marketplace" class="@active("/marketplace", false)">Marketplace</a>
+                @if (signedIn)
+                {
+                    <a href="~/my-listings" class="@active("/my-listings", false)">My Listings</a>
+                    <a href="~/my-purchases" class="@active("/my-purchases", false)">My Purchases</a>
+                    if (Session["AdminUserId"] != null)
+                    {
+                        <a href="@Url.Action("Dashboard", "Admin")">Admin Panel</a>
+                    }
+                }
+            </nav>
+
+            <div class="nav-actions">
+                @if (signedIn)
+                {
+                    <span class="nav-user" title="@User.Identity.Name">
+                        <span class="avatar" aria-hidden="true">@initials</span>
+                        <span>@displayName</span>
+                    </span>
+                    using (Html.BeginForm("Logout", "Account", FormMethod.Post, new { @class = "nav-logout" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm">Logout</button>
+                    }
+                }
+                else
+                {
+                    <a class="btn btn-ghost btn-sm" href="@Url.Action("Login", "Account")">Login</a>
+                    <a class="btn btn-primary btn-sm" href="@Url.Action("Register", "Account")">Sign Up</a>
+                }
+            </div>
+        </div>
     </header>
 
-    <main>
+    <main class="body-content@(fullWidth ? " is-full" : "")">
         @RenderBody()
     </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner glass">
+            <div>
+                <a class="brand" href="~/"><span class="brand-mark">MU</span><span>Marketplace</span></a>
+                <p>The campus marketplace for Marwadi University students. Buy and sell books, gadgets and hostel essentials, with every listing reviewed by an admin.</p>
+            </div>
+            <div>
+                <h4>Explore</h4>
+                <ul>
+                    <li><a href="~/">Home</a></li>
+                    <li><a href="~/marketplace">Browse marketplace</a></li>
+                    <li><a href="~/my-listings/create">Sell an item</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Account</h4>
+                <ul>
+                    @if (signedIn)
+                    {
+                        <li><a href="~/my-listings">My listings</a></li>
+                        <li><a href="~/my-purchases">My purchases</a></li>
+                    }
+                    else
+                    {
+                        <li><a href="@Url.Action("Login", "Account")">Login</a></li>
+                        <li><a href="@Url.Action("Register", "Account")">Create an account</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; @DateTime.Now.Year MU-Marketplace &middot; Marwadi University</span>
+            <span>Built by students, for students.</span>
+        </div>
+    </footer>
+
+    <script src="~/Scripts/Site.js"></script>
+    @RenderSection("scripts", required: false)
 
 </body>
 </html>

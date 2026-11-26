@@ -1,0 +1,16 @@
+﻿@model MU_Marketplace.Models.ViewModels.ProductFormViewModel
+@{
+    ViewBag.Title = "New Listing";
+}
+
+<h2>List an item for sale</h2>
+<p class="mp-hint">Your listing becomes visible to other students after an administrator approves it.</p>
+
+@using (Html.BeginForm("Create", "Marketplace", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    @Html.Partial("_ProductForm", Model)
+
+    <button type="submit" class="mp-btn mp-btn-primary">Submit for review</button>
+    <a class="mp-btn" href="@Url.Action("MyListings")">Cancel</a>
+}

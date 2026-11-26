@@ -1,7 +1,168 @@
-﻿
+﻿@using System.Data
+
 @{
-    ViewBag.Title = "Users";
+    ViewBag.PageTitle = "Manage Users";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable users = Model as DataTable;
+    string search = Convert.ToString(ViewBag.Search ?? "");
+    string statusFilter = Convert.ToString(ViewBag.StatusFilter ?? "all");
 }
 
-<h2>Users</h2>
+<div class="page-heading">
+    <div>
+        <h1>Manage Users</h1>
+        <p>View student accounts, listing activity, and manage marketplace access.</p>
+    </div>
+    <a href="@Url.Action("ExportUsersCsv", "Admin")" class="btn btn-amber">
+        &#8681; Download Students CSV
+    </a>
+</div>
 
+<div class="panel-card">
+
+    <div class="filter-bar">
+
+        <div class="filter-tabs">
+            <a href="@Url.Action("Users", new { statusFilter = "all", search = search })"
+               class="btn @(statusFilter == "all" ? "btn-amber" : "btn-secondary")">
+                All Students
+            </a>
+            <a href="@Url.Action("Users", new { statusFilter = "active", search = search })"
+               class="btn @(statusFilter == "active" ? "btn-amber" : "btn-secondary")">
+                Active
+            </a>
+            <a href="@Url.Action("Users", new { statusFilter = "suspended", search = search })"
+               class="btn @(statusFilter == "suspended" ? "btn-amber" : "btn-secondary")">
+                Suspended
+            </a>
+        </div>
+
+        @using (Html.BeginForm("Users", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        {
+            <input type="hidden" name="statusFilter" value="@statusFilter" />
+            <input type="text" name="search" value="@search" class="form-control" placeholder="Search name, email, enrollment..." />
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                <a href="@Url.Action("Users", new { statusFilter = statusFilter })" class="btn btn-secondary btn-sm">Clear</a>
+            }
+        }
+
+    </div>
+
+    <div class="panel-header">
+        <h3>Student Accounts</h3>
+        <span class="panel-count">@(users == null ? 0 : users.Rows.Count) students</span>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="table-responsive">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student</th>
+                        <th>Enrollment / Dept</th>
+                        <th>Phone</th>
+                        <th>Listings</th>
+                        <th>Joined</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (users != null && users.Rows.Count > 0)
+                    {
+                        foreach (DataRow user in users.Rows)
+                        {
+                            int userId = Convert.ToInt32(user["UserId"]);
+                            int status = Convert.ToInt32(user["Status"]);
+                            string enroll = user["EnrollmentNo"] == DBNull.Value ? "N/A" : Convert.ToString(user["EnrollmentNo"]);
+                            string dept = user["Department"] == DBNull.Value ? "N/A" : Convert.ToString(user["Department"]);
+                            string phone = user["PhoneNumber"] == DBNull.Value ? "N/A" : Convert.ToString(user["PhoneNumber"]);
+                            int listingCount = Convert.ToInt32(user["ListingCount"]);
+
+                            <tr>
+                                <td>#@userId</td>
+
+                                <td>
+                                    <strong>@user["FullName"]</strong><br />
+                                    <small>@user["Email"]</small>
+                                </td>
+
+                                <td>
+                                    @enroll<br />
+                                    <small>@dept</small>
+                                </td>
+
+                                <td>@phone</td>
+
+                                <td>@listingCount</td>
+
+                                <td>@Convert.ToDateTime(user["CreatedAt"]).ToString("dd MMM yyyy")</td>
+
+                                <td>
+                                    @if (status == 0)
+                                    {
+                                        <span class="status-badge status-active">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-suspended">Suspended</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    @using (Html.BeginForm("ChangeUserStatus", "Admin", FormMethod.Post))
+                                    {
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@userId" />
+
+                                        if (status == 0)
+                                        {
+                                            <button type="submit"
+                                                    name="status"
+                                                    value="1"
+                                                    class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('Are you sure you want to suspend this student?');">
+                                                Suspend
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit"
+                                                    name="status"
+                                                    value="0"
+                                                    class="btn btn-success btn-sm">
+                                                Activate
+                                            </button>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" style="text-align:center;padding:30px;">
+                                No student accounts found.
+                            </td>
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
