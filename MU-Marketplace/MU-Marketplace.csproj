@@ -113,6 +113,7 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Infrastructure\DatabaseInitializer.cs" />
+    <Compile Include="Infrastructure\StripeHelper.cs" />
     <Compile Include="Infrastructure\PasswordHasher.cs" />
     <Compile Include="Migrations\DbSeeder.cs" />
     <Compile Include="Models\ApplicationDbContext.cs" />
@@ -156,6 +157,7 @@
     <Content Include="Views\Admin\Reports.cshtml" />
     <Content Include="Views\Admin\Categories.cshtml" />
     <Content Include="Views\Admin\Orders.cshtml" />
+    <Content Include="Views\Admin\Escrow.cshtml" />
     <Content Include="Views\Shared\_AdminLayout.cshtml" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>

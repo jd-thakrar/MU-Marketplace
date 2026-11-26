@@ -7,10 +7,15 @@
 
     DataTable recentPending = ViewBag.RecentPending as DataTable;
     DataTable recentReports = ViewBag.RecentReports as DataTable;
+    DataTable recentEscrow = ViewBag.RecentEscrow as DataTable;
     DataTable categoryStats = ViewBag.CategoryStats as DataTable;
     DataTable statusStats = ViewBag.StatusStats as DataTable;
 
     decimal totalSales = ViewBag.TotalSales != null ? Convert.ToDecimal(ViewBag.TotalSales) : 0m;
+    decimal heldEscrow = ViewBag.HeldEscrowAmount != null ? Convert.ToDecimal(ViewBag.HeldEscrowAmount) : 0m;
+    decimal releasedEscrow = ViewBag.ReleasedEscrowAmount != null ? Convert.ToDecimal(ViewBag.ReleasedEscrowAmount) : 0m;
+    decimal refundedAmount = ViewBag.RefundedAmount != null ? Convert.ToDecimal(ViewBag.RefundedAmount) : 0m;
+    int refundRequests = ViewBag.RefundRequests != null ? Convert.ToInt32(ViewBag.RefundRequests) : 0;
 
     int[] statusCounts = new int[5];
     if (statusStats != null)
@@ -40,79 +45,105 @@
 <div class="page-heading">
     <div>
         <h1>Admin Dashboard</h1>
-        <p>Live overview of marketplace listings, orders, students, and moderation.</p>
+        <p>Live overview of marketplace listings, Stripe escrow, orders, and moderation.</p>
     </div>
     <div class="action-group">
-        <a href="@Url.Action("Listings", "Admin", new { status = 0 })" class="btn btn-amber">Review Pending</a>
+        <a href="@Url.Action("Escrow", "Admin")" class="btn btn-amber">Escrow &amp; Refunds (@refundRequests)</a>
+        <a href="@Url.Action("Listings", "Admin", new { status = 0 })" class="btn btn-secondary">Review Pending</a>
         <a href="@Url.Action("Orders", "Admin")" class="btn btn-primary">View Orders</a>
     </div>
 </div>
 
-<!-- PRIMARY STATISTICS -->
+<!-- PRIMARY STATISTICS (4 CLEAN CARDS) -->
 <div class="stats-grid">
 
-    <div class="stat-card accent-amber">
-        <div class="stat-icon gold">&#9719;</div>
+    <div class="stat-card" style="border-top:2px solid #333;">
+        <div class="stat-icon" style="background:#141414; color:#EDEDED; border:1px solid #262626;">&#8377;</div>
+        <div class="stat-info">
+            <small>Net Sales Volume</small>
+            <h2>&#8377;@totalSales.ToString("N0")</h2>
+            <small style="color:#777; font-size:0.75rem;">@ViewBag.TotalOrders active orders</small>
+        </div>
+    </div>
+
+    <div class="stat-card" style="border-top:2px solid #333;">
+        <div class="stat-icon" style="background:#141414; color:#EDEDED; border:1px solid #262626;">&#9203;</div>
+        <div class="stat-info">
+            <small>Held in Escrow</small>
+            <h2>&#8377;@heldEscrow.ToString("N0")</h2>
+            <small style="color:#777; font-size:0.75rem;">@refundRequests refund request(s) &middot; &#8377;@releasedEscrow.ToString("N0") paid</small>
+        </div>
+    </div>
+
+    <div class="stat-card" style="border-top:2px solid #333;">
+        <div class="stat-icon" style="background:#141414; color:#EDEDED; border:1px solid #262626;">&#9719;</div>
         <div class="stat-info">
             <small>Pending Listings</small>
             <h2>@ViewBag.PendingListings</h2>
+            <small style="color:#777; font-size:0.75rem;">@ViewBag.ApprovedProducts live listings</small>
         </div>
     </div>
 
-    <div class="stat-card accent-green">
-        <div class="stat-icon green">&#10003;</div>
-        <div class="stat-info">
-            <small>Approved Products</small>
-            <h2>@ViewBag.ApprovedProducts</h2>
-        </div>
-    </div>
-
-    <div class="stat-card accent-teal">
-        <div class="stat-icon">&#9817;</div>
-        <div class="stat-info">
-            <small>Total Students</small>
-            <h2>@ViewBag.TotalStudents</h2>
-        </div>
-    </div>
-
-    <div class="stat-card accent-red">
-        <div class="stat-icon red">&#9873;</div>
+    <div class="stat-card" style="border-top:2px solid #333;">
+        <div class="stat-icon" style="background:#141414; color:#EDEDED; border:1px solid #262626;">&#9873;</div>
         <div class="stat-info">
             <small>Open Reports</small>
             <h2>@ViewBag.OpenReports</h2>
+            <small style="color:#777; font-size:0.75rem;">@ViewBag.TotalStudents students</small>
         </div>
     </div>
 
 </div>
 
-<!-- SECONDARY SUMMARY -->
-<div class="stats-grid-3">
-
-    <div class="stat-card accent-teal">
-        <div class="stat-icon">&#9733;</div>
-        <div class="stat-info">
-            <small>Completed Orders</small>
-            <h2>@ViewBag.TotalOrders</h2>
+@if (recentEscrow != null && recentEscrow.Rows.Count > 0)
+{
+    <div class="panel-card" style="margin-bottom:20px;">
+        <div class="panel-header">
+            <h3>Active Escrow &amp; Refund Queue</h3>
+            <a href="@Url.Action("Escrow", "Admin")" class="btn btn-amber btn-sm">Open Escrow Panel</a>
+        </div>
+        <div class="panel-body">
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Product</th>
+                            <th>Buyer &rarr; Seller</th>
+                            <th>Amount</th>
+                            <th>Status / Reason</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (DataRow er in recentEscrow.Rows)
+                        {
+                            int es = Convert.ToInt32(er["EscrowStatus"]);
+                            <tr>
+                                <td><strong>#@er["PurchaseId"]</strong></td>
+                                <td>@er["ProductTitle"]</td>
+                                <td>@er["BuyerName"] &rarr; @er["SellerName"]</td>
+                                <td>&#8377;@Convert.ToDecimal(er["PurchasePrice"]).ToString("N2")</td>
+                                <td>
+                                    <span class="status-badge status-pending">
+                                        @(es == 2 ? "Refund Requested" : "Held in Escrow")
+                                    </span>
+                                    @if (er["RefundReason"] != DBNull.Value && !string.IsNullOrWhiteSpace(Convert.ToString(er["RefundReason"])))
+                                    {
+                                        <div style="font-size:0.78rem; color:#F5A623; margin-top:4px;">@er["RefundReason"]</div>
+                                    }
+                                </td>
+                                <td>
+                                    <a href="@Url.Action("Escrow", "Admin", new { status = es })" class="btn btn-secondary btn-sm">Review &rarr;</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-
-    <div class="stat-card accent-amber">
-        <div class="stat-icon gold">&#9776;</div>
-        <div class="stat-info">
-            <small>Active Categories</small>
-            <h2>@ViewBag.ActiveCategories</h2>
-        </div>
-    </div>
-
-    <div class="stat-card accent-green">
-        <div class="stat-icon green">&#8377;</div>
-        <div class="stat-info">
-            <small>Total Sales Volume</small>
-            <h2>&#8377;@totalSales.ToString("N0")</h2>
-        </div>
-    </div>
-
-</div>
+}
 
 <!-- DOWNLOADABLE REPORTS BAR -->
 <div class="export-bar">

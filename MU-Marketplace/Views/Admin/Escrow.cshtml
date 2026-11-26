@@ -1,0 +1,197 @@
+@using System.Data
+
+@{
+    ViewBag.PageTitle = "Escrow & Refunds";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    DataTable rows = Model as DataTable;
+    int currentStatus = Convert.ToInt32(ViewBag.CurrentStatus ?? -1);
+    string search = Convert.ToString(ViewBag.Search ?? "");
+
+    decimal heldTotal = Convert.ToDecimal(ViewBag.HeldTotal ?? 0m);
+    decimal releasedTotal = Convert.ToDecimal(ViewBag.ReleasedTotal ?? 0m);
+    decimal refundedTotal = Convert.ToDecimal(ViewBag.RefundedTotal ?? 0m);
+    int refundRequestsCount = Convert.ToInt32(ViewBag.RefundRequestsCount ?? 0);
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Escrow &amp; Refunds</h1>
+        <p>Manage funds held by MU-Marketplace, release seller payouts, or issue Stripe refunds to buyers.</p>
+    </div>
+</div>
+
+<div class="stats-grid-4" style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; margin-bottom:20px;">
+    <div class="stat-card">
+        <span class="stat-label">Held in Escrow</span>
+        <strong class="stat-value">&#8377;@heldTotal.ToString("N2")</strong>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Refund Requests</span>
+        <strong class="stat-value" style="color:#F5A623;">@refundRequestsCount</strong>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Released to Sellers</span>
+        <strong class="stat-value" style="color:#50E3C2;">&#8377;@releasedTotal.ToString("N2")</strong>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Refunded to Buyers</span>
+        <strong class="stat-value" style="color:#FF4D4F;">&#8377;@refundedTotal.ToString("N2")</strong>
+    </div>
+</div>
+
+<div class="panel-card">
+
+    <div class="filter-bar">
+
+        <div class="filter-tabs">
+            <a href="@Url.Action("Escrow", new { status = -1, search = search })"
+               class="btn @(currentStatus == -1 ? "btn-amber" : "btn-secondary")">All</a>
+            <a href="@Url.Action("Escrow", new { status = 2, search = search })"
+               class="btn @(currentStatus == 2 ? "btn-amber" : "btn-secondary")">Refund Requested (@refundRequestsCount)</a>
+            <a href="@Url.Action("Escrow", new { status = 0, search = search })"
+               class="btn @(currentStatus == 0 ? "btn-amber" : "btn-secondary")">Held in Escrow</a>
+            <a href="@Url.Action("Escrow", new { status = 1, search = search })"
+               class="btn @(currentStatus == 1 ? "btn-amber" : "btn-secondary")">Released</a>
+            <a href="@Url.Action("Escrow", new { status = 3, search = search })"
+               class="btn @(currentStatus == 3 ? "btn-amber" : "btn-secondary")">Refunded</a>
+        </div>
+
+        @using (Html.BeginForm("Escrow", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        {
+            <input type="hidden" name="status" value="@currentStatus" />
+            <input type="text" name="search" value="@search" class="form-control" placeholder="Search product, buyer, seller..." />
+            <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                <a href="@Url.Action("Escrow", new { status = currentStatus })" class="btn btn-secondary btn-sm">Clear</a>
+            }
+        }
+
+    </div>
+
+    <div class="panel-header">
+        <h3>Escrow Ledger</h3>
+        <span class="panel-count">@(rows == null ? 0 : rows.Rows.Count) transactions</span>
+    </div>
+
+    <div class="panel-body">
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Product</th>
+                        <th>Amount</th>
+                        <th>Buyer</th>
+                        <th>Seller</th>
+                        <th>Escrow Status</th>
+                        <th>Reason / Stripe Ref</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (rows != null && rows.Rows.Count > 0)
+                    {
+                        foreach (DataRow r in rows.Rows)
+                        {
+                            int purchaseId = Convert.ToInt32(r["PurchaseId"]);
+                            int escrowStatus = Convert.ToInt32(r["EscrowStatus"]);
+                            decimal amount = Convert.ToDecimal(r["PurchasePrice"]);
+                            string productTitle = Convert.ToString(r["ProductTitle"]);
+                            string pickup = Convert.ToString(r["PickupLocation"]);
+                            string buyerName = Convert.ToString(r["BuyerName"]);
+                            string buyerEmail = Convert.ToString(r["BuyerEmail"]);
+                            string sellerName = Convert.ToString(r["SellerName"]);
+                            string sellerEmail = Convert.ToString(r["SellerEmail"]);
+                            string paymentIntent = r["StripePaymentIntentId"] == DBNull.Value ? "" : Convert.ToString(r["StripePaymentIntentId"]);
+                            string refundReason = r["RefundReason"] == DBNull.Value ? "" : Convert.ToString(r["RefundReason"]);
+                            string dateStr = Convert.ToDateTime(r["PurchaseDate"]).ToString("dd MMM yyyy, hh:mm tt");
+
+                            string badgeText =
+                                escrowStatus == 0 ? "Held in Escrow" :
+                                escrowStatus == 1 ? "Released to Seller" :
+                                escrowStatus == 2 ? "Refund Requested" : "Refunded";
+
+                            string badgeClass =
+                                escrowStatus == 0 ? "status-pending" :
+                                escrowStatus == 1 ? "status-approved" :
+                                escrowStatus == 2 ? "status-pending" : "status-rejected";
+
+                            <tr>
+                                <td>
+                                    <strong>#@purchaseId</strong><br />
+                                    <small>@dateStr</small>
+                                </td>
+                                <td>
+                                    <strong>@productTitle</strong><br />
+                                    <small>@pickup</small>
+                                </td>
+                                <td>&#8377;@amount.ToString("N2")</td>
+                                <td>
+                                    @buyerName<br />
+                                    <small>@buyerEmail</small>
+                                </td>
+                                <td>
+                                    @sellerName<br />
+                                    <small>@sellerEmail</small>
+                                </td>
+                                <td>
+                                    <span class="status-badge @badgeClass">@badgeText</span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(refundReason))
+                                    {
+                                        <div style="color:#F5A623; margin-bottom:4px;">@refundReason</div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(paymentIntent))
+                                    {
+                                        <small style="font-family:monospace;">@paymentIntent</small>
+                                    }
+                                    else
+                                    {
+                                        <small>No Stripe PI</small>
+                                    }
+                                </td>
+                                <td>
+                                    @if (escrowStatus == 0 || escrowStatus == 2)
+                                    {
+                                        <div class="action-group" style="display:flex; gap:6px; flex-wrap:wrap;">
+                                            @using (Html.BeginForm("ReleaseEscrow", "Admin", FormMethod.Post,
+                                                   new { onsubmit = "return confirm('Release payout to seller? This adds the amount to seller profit.');" }))
+                                            {
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="purchaseId" value="@purchaseId" />
+                                                <button type="submit" class="btn btn-amber btn-sm">Release to Seller</button>
+                                            }
+                                            @using (Html.BeginForm("RefundEscrow", "Admin", FormMethod.Post,
+                                                   new { onsubmit = "return confirm('Issue refund to buyer via Stripe?');" }))
+                                            {
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="purchaseId" value="@purchaseId" />
+                                                <button type="submit" class="btn btn-danger btn-sm">Refund Buyer</button>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <small>Finalized</small>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" style="text-align:center; padding:32px; color:#888;">
+                                No escrow transactions match this filter.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

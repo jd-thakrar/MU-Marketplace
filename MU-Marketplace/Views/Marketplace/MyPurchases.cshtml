@@ -1,4 +1,5 @@
 ﻿@model IEnumerable<MU_Marketplace.Models.ViewModels.PurchaseHistoryViewModel>
+@using MU_Marketplace.Models
 @{
     ViewBag.Title = "My Purchases";
 }
@@ -6,7 +7,7 @@
 <div class="mp-page-head">
     <div>
         <h2>My Purchases</h2>
-        <p class="mp-meta">Use the seller's contact number and campus pickup spot below to collect your item.</p>
+        <p class="mp-meta">Your payment is held safely by MU-Marketplace until you confirm pickup below.</p>
     </div>
     <div class="mp-action-row">
         <a class="mp-btn" href="@Url.Action("Index", "Marketplace")">&larr; Browse Marketplace</a>
@@ -28,18 +29,20 @@ else
                 <th>Item</th>
                 <th>Paid</th>
                 <th>Pick From</th>
-                <th>Date</th>
                 <th>Seller Contact</th>
+                <th>Escrow &amp; Confirmation</th>
             </tr>
         </thead>
         <tbody>
         @foreach (var p in Model)
         {
             <tr>
-                <td><a href="@Url.Action("Details", new { id = p.ProductId })"><strong>@p.Title</strong></a></td>
+                <td>
+                    <a href="@Url.Action("Details", new { id = p.ProductId })"><strong>@p.Title</strong></a>
+                    <div class="mp-meta">@p.PurchaseDate.ToString("dd MMM yyyy, hh:mm tt")</div>
+                </td>
                 <td class="mp-price">&#8377;@p.AmountPaid.ToString("N2")</td>
                 <td>@(string.IsNullOrWhiteSpace(p.PickupLocation) ? "MU Campus" : p.PickupLocation)</td>
-                <td>@p.PurchaseDate.ToString("dd MMM yyyy, hh:mm tt")</td>
                 <td>
                     <div><strong>@p.SellerName</strong></div>
                     @if (!string.IsNullOrWhiteSpace(p.SellerPhone))
@@ -53,6 +56,67 @@ else
                     @if (!string.IsNullOrWhiteSpace(p.SellerEmail))
                     {
                         <div class="mp-meta">Email: <a href="mailto:@p.SellerEmail">@p.SellerEmail</a></div>
+                    }
+                </td>
+                <td>
+                    @if (p.EscrowStatus == EscrowStatus.Held)
+                    {
+                        <div class="mp-meta" style="margin-bottom:6px">
+                            <span class="mp-badge mp-pending">Held in Escrow</span>
+                        </div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                            @using (Html.BeginForm("ConfirmReceived", "Marketplace", new { purchaseId = p.PurchaseId }, FormMethod.Post,
+                                   new { @class = "mp-inline", onsubmit = "return confirm('Confirm you received this item in good condition? This releases payment to the seller.');" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="mp-btn mp-btn-primary">Received &amp; Satisfied</button>
+                            }
+                            <button type="button" class="mp-btn mp-btn-danger"
+                                    onclick="var box = document.getElementById('refund-box-@p.PurchaseId'); box.style.display = box.style.display === 'none' ? 'block' : 'none';">
+                                Request Refund
+                            </button>
+                        </div>
+                        <div id="refund-box-@p.PurchaseId" style="display:none; margin-top:8px;">
+                            @using (Html.BeginForm("RequestRefund", "Marketplace", new { purchaseId = p.PurchaseId }, FormMethod.Post))
+                            {
+                                @Html.AntiForgeryToken()
+                                <input type="text" name="reason" required maxlength="400" placeholder="Reason for refund (sent to admin)..."
+                                       style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #d1d5db; margin-bottom:6px;" />
+                                <button type="submit" class="mp-btn mp-btn-danger">Submit Refund Request</button>
+                            }
+                        </div>
+                    }
+                    else if (p.EscrowStatus == EscrowStatus.Released)
+                    {
+                        <span class="mp-badge mp-approved">Confirmed &amp; Paid to Seller</span>
+                        if (p.ReleasedAt.HasValue)
+                        {
+                            <div class="mp-meta" style="margin-top:4px">@p.ReleasedAt.Value.ToString("dd MMM yyyy")</div>
+                        }
+                    }
+                    else if (p.EscrowStatus == EscrowStatus.RefundRequested)
+                    {
+                        <span class="mp-badge mp-pending">Refund Requested (Admin Review)</span>
+                        if (!string.IsNullOrWhiteSpace(p.RefundReason))
+                        {
+                            <div class="mp-meta" style="margin-top:4px">Reason: @p.RefundReason</div>
+                        }
+                        <div style="margin-top:6px">
+                            @using (Html.BeginForm("ConfirmReceived", "Marketplace", new { purchaseId = p.PurchaseId }, FormMethod.Post,
+                                   new { @class = "mp-inline", onsubmit = "return confirm('Cancel refund request and release payment to seller?');" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="mp-btn">Mark Received Instead</button>
+                            }
+                        </div>
+                    }
+                    else if (p.EscrowStatus == EscrowStatus.Refunded)
+                    {
+                        <span class="mp-badge mp-rejected">Refunded</span>
+                        if (p.RefundedAt.HasValue)
+                        {
+                            <div class="mp-meta" style="margin-top:4px">@p.RefundedAt.Value.ToString("dd MMM yyyy")</div>
+                        }
                     }
                 </td>
             </tr>

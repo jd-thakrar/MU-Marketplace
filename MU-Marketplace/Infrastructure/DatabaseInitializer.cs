@@ -194,7 +194,24 @@ namespace MU_Marketplace.Infrastructure
                 );
                 CREATE INDEX IX_Reports_Status_CreatedAt ON dbo.Reports([Status], CreatedAt DESC);
                 CREATE INDEX IX_Reports_ProductId ON dbo.Reports(ProductId);
-            END;"
+            END;",
+
+            @"IF COL_LENGTH(N'dbo.Purchases', N'EscrowStatus') IS NULL
+                ALTER TABLE dbo.Purchases ADD EscrowStatus TINYINT NOT NULL CONSTRAINT DF_Purchases_EscrowStatus DEFAULT (0);",
+            @"IF COL_LENGTH(N'dbo.Purchases', N'StripeSessionId') IS NULL
+                ALTER TABLE dbo.Purchases ADD StripeSessionId NVARCHAR(200) NULL;",
+            @"IF COL_LENGTH(N'dbo.Purchases', N'StripePaymentIntentId') IS NULL
+                ALTER TABLE dbo.Purchases ADD StripePaymentIntentId NVARCHAR(200) NULL;",
+            @"IF COL_LENGTH(N'dbo.Purchases', N'RefundReason') IS NULL
+                ALTER TABLE dbo.Purchases ADD RefundReason NVARCHAR(500) NULL;",
+            @"IF COL_LENGTH(N'dbo.Purchases', N'ReleasedAt') IS NULL
+                ALTER TABLE dbo.Purchases ADD ReleasedAt DATETIME2(0) NULL;",
+            @"IF COL_LENGTH(N'dbo.Purchases', N'RefundedAt') IS NULL
+                ALTER TABLE dbo.Purchases ADD RefundedAt DATETIME2(0) NULL;",
+            @"IF EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_Purchases_ProductId' AND parent_object_id = OBJECT_ID(N'dbo.Purchases'))
+                ALTER TABLE dbo.Purchases DROP CONSTRAINT UQ_Purchases_ProductId;",
+            @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UQ_Purchases_ActiveProduct' AND object_id = OBJECT_ID(N'dbo.Purchases'))
+                CREATE UNIQUE NONCLUSTERED INDEX UQ_Purchases_ActiveProduct ON dbo.Purchases(ProductId) WHERE EscrowStatus <> 3;"
         };
     }
 }

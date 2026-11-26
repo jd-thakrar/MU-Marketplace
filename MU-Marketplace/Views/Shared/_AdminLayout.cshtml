@@ -59,6 +59,12 @@
                     Orders
                 </a>
 
+                <a href="@Url.Action("Escrow", "Admin")"
+                   class="sidebar-link @(currentAction == "Escrow" ? "active" : "")">
+                    <span class="menu-icon">&#8377;</span>
+                    Escrow &amp; Refunds
+                </a>
+
                 <a href="@Url.Action("Categories", "Admin")"
                    class="sidebar-link @(currentAction == "Categories" ? "active" : "")">
                     <span class="menu-icon">&#9776;</span>

@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
+using MU_Marketplace.Infrastructure;
 using MU_Marketplace.Models;
 using MU_Marketplace.Models.ViewModels;
 
@@ -244,6 +245,12 @@ namespace MU_Marketplace.Controllers
                 return RedirectToAction("Cart");
             }
 
+            if (!StripeHelper.IsConfigured())
+            {
+                TempData["Error"] = "Stripe payment keys are not configured in Web.config yet.";
+                return RedirectToAction("Cart");
+            }
+
             var cart = db.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == me.Value);
             if (cart == null || !cart.CartItems.Any())
             {
@@ -252,77 +259,67 @@ namespace MU_Marketplace.Controllers
             }
 
             var productIds = cart.CartItems.Select(ci => ci.ProductId).ToList();
-            var products = db.Products.Where(p => productIds.Contains(p.ProductId)).ToList();
+            var products = db.Products.AsNoTracking().Where(p => productIds.Contains(p.ProductId)).ToList();
 
-            int purchasedCount = 0;
-            var skippedTitles = new List<string>();
+            var availableProducts = new List<Product>();
+            var unavailableItems = new List<CartItem>();
 
-            using (var tx = db.Database.BeginTransaction())
+            foreach (var ci in cart.CartItems.ToList())
             {
-                try
+                var prod = products.FirstOrDefault(p => p.ProductId == ci.ProductId);
+                if (prod == null || prod.SellerId == me.Value || prod.Status != ProductStatus.Approved)
                 {
-                    foreach (var ci in cart.CartItems.ToList())
-                    {
-                        var prod = products.FirstOrDefault(p => p.ProductId == ci.ProductId);
-                        if (prod == null || prod.SellerId == me.Value || prod.Status != ProductStatus.Approved)
-                        {
-                            if (prod != null) skippedTitles.Add(prod.Title);
-                            db.CartItems.Remove(ci);
-                            continue;
-                        }
-
-                        int claimed = db.Database.ExecuteSqlCommand(
-                            "UPDATE Products SET Status = {0}, UpdatedAt = SYSUTCDATETIME() WHERE ProductId = {1} AND Status = {2}",
-                            (byte)ProductStatus.Sold, prod.ProductId, (byte)ProductStatus.Approved);
-
-                        if (claimed == 0)
-                        {
-                            skippedTitles.Add(prod.Title);
-                            db.CartItems.Remove(ci);
-                            continue;
-                        }
-
-                        db.Purchases.Add(new Purchase
-                        {
-                            ProductId = prod.ProductId,
-                            BuyerId = me.Value,
-                            PurchasePrice = prod.Price,
-                            PurchaseDate = DateTime.UtcNow
-                        });
-
-                        // Remove from all carts once sold
-                        db.Database.ExecuteSqlCommand("DELETE FROM CartItems WHERE ProductId = {0}", prod.ProductId);
-                        purchasedCount++;
-                    }
-
-                    cart.UpdatedAt = DateTime.UtcNow;
-                    db.SaveChanges();
-                    tx.Commit();
+                    unavailableItems.Add(ci);
                 }
-                catch (DbUpdateException)
+                else
                 {
-                    tx.Rollback();
-                    TempData["Error"] = "Checkout could not be completed. Please try again.";
-                    return RedirectToAction("Cart");
+                    availableProducts.Add(prod);
                 }
             }
 
-            if (purchasedCount > 0)
+            if (unavailableItems.Any())
             {
-                TempData["Success"] = purchasedCount + " item(s) purchased! Contact the seller(s) below to arrange campus pickup.";
-                if (skippedTitles.Any())
-                {
-                    TempData["Error"] = "Some items were no longer available and were removed: " + string.Join(", ", skippedTitles);
-                }
-                return RedirectToAction("MyPurchases");
+                foreach (var ci in unavailableItems)
+                    db.CartItems.Remove(ci);
+                db.SaveChanges();
             }
 
-            TempData["Error"] = "None of the items in your cart were available anymore.";
-            return RedirectToAction("Cart");
+            if (!availableProducts.Any())
+            {
+                TempData["Error"] = "None of the items in your cart were available anymore.";
+                return RedirectToAction("Cart");
+            }
+
+            var lineItems = availableProducts.Select(p => new StripeLineItem
+            {
+                Name = p.Title,
+                UnitAmountPaise = (long)Math.Round(p.Price * 100m, MidpointRounding.AwayFromZero),
+                Quantity = 1
+            }).ToList();
+
+            string baseUrl = Request.Url.GetLeftPart(UriPartial.Authority);
+            string successUrl = baseUrl + Url.Action("PaymentSuccess", "Marketplace") + "?session_id={CHECKOUT_SESSION_ID}";
+            string cancelUrl = baseUrl + Url.Action("Cart", "Marketplace");
+
+            var metadata = new Dictionary<string, string>
+            {
+                { "mode", "cart" },
+                { "buyer_id", me.Value.ToString() },
+                { "product_ids", string.Join(",", availableProducts.Select(p => p.ProductId)) }
+            };
+
+            var session = StripeHelper.CreateCheckoutSession(lineItems, successUrl, cancelUrl, metadata);
+            if (!session.Success || string.IsNullOrWhiteSpace(session.CheckoutUrl))
+            {
+                TempData["Error"] = "Could not start Stripe payment: " + (session.Error ?? "Unknown error");
+                return RedirectToAction("Cart");
+            }
+
+            return Redirect(session.CheckoutUrl);
         }
 
         // =====================================================================
-        //  BUY (DIRECT PURCHASE - LOGIN REQUIRED)
+        //  BUY (STRIPE CHECKOUT - LOGIN REQUIRED)
         // =====================================================================
 
         // POST /marketplace/buy/5
@@ -340,6 +337,12 @@ namespace MU_Marketplace.Controllers
                 return RedirectToAction("Index");
             }
 
+            if (!StripeHelper.IsConfigured())
+            {
+                TempData["Error"] = "Stripe payment keys are not configured in Web.config yet.";
+                return RedirectToAction("Details", new { id });
+            }
+
             var product = db.Products.AsNoTracking().FirstOrDefault(p => p.ProductId == id);
             if (product == null) return HttpNotFound();
 
@@ -354,41 +357,142 @@ namespace MU_Marketplace.Controllers
                 return RedirectToAction("Details", new { id });
             }
 
-            try
+            var lineItems = new List<StripeLineItem>
             {
-                using (var tx = db.Database.BeginTransaction())
+                new StripeLineItem
                 {
-                    // Atomic claim: only ONE request can change Approved -> Sold.
-                    int claimed = db.Database.ExecuteSqlCommand(
-                        "UPDATE Products SET Status = {0}, UpdatedAt = SYSUTCDATETIME() WHERE ProductId = {1} AND Status = {2}",
-                        (byte)ProductStatus.Sold, id, (byte)ProductStatus.Approved);
-
-                    if (claimed == 0)
-                    {
-                        tx.Rollback();
-                        TempData["Error"] = "Someone else just bought this item.";
-                        return RedirectToAction("Details", new { id });
-                    }
-
-                    db.Purchases.Add(new Purchase
-                    {
-                        ProductId = id,
-                        BuyerId = me.Value,
-                        PurchasePrice = product.Price,
-                        PurchaseDate = DateTime.UtcNow
-                    });
-                    db.Database.ExecuteSqlCommand("DELETE FROM CartItems WHERE ProductId = {0}", id);
-                    db.SaveChanges();
-                    tx.Commit();
+                    Name = product.Title,
+                    UnitAmountPaise = (long)Math.Round(product.Price * 100m, MidpointRounding.AwayFromZero),
+                    Quantity = 1
                 }
-            }
-            catch (DbUpdateException)
+            };
+
+            string baseUrl = Request.Url.GetLeftPart(UriPartial.Authority);
+            string successUrl = baseUrl + Url.Action("PaymentSuccess", "Marketplace") + "?session_id={CHECKOUT_SESSION_ID}";
+            string cancelUrl = baseUrl + Url.Action("Details", "Marketplace", new { id });
+
+            var metadata = new Dictionary<string, string>
             {
-                TempData["Error"] = "The purchase could not be completed. Please try again.";
+                { "mode", "single" },
+                { "buyer_id", me.Value.ToString() },
+                { "product_ids", id.ToString() }
+            };
+
+            var session = StripeHelper.CreateCheckoutSession(lineItems, successUrl, cancelUrl, metadata);
+            if (!session.Success || string.IsNullOrWhiteSpace(session.CheckoutUrl))
+            {
+                TempData["Error"] = "Could not start Stripe payment: " + (session.Error ?? "Unknown error");
                 return RedirectToAction("Details", new { id });
             }
 
-            TempData["Success"] = "Purchase complete! Contact the seller to arrange pickup.";
+            return Redirect(session.CheckoutUrl);
+        }
+
+        // GET /marketplace/payment/success?session_id=cs_test_...
+        [Authorize]
+        [HttpGet]
+        [Route("payment/success")]
+        public ActionResult PaymentSuccess(string session_id)
+        {
+            int? me = CurrentUserId();
+            if (!me.HasValue) return new HttpUnauthorizedResult();
+
+            if (string.IsNullOrWhiteSpace(session_id))
+            {
+                TempData["Error"] = "Missing Stripe payment session.";
+                return RedirectToAction("MyPurchases");
+            }
+
+            // Idempotent check: if already recorded, just show MyPurchases
+            if (db.Purchases.AsNoTracking().Any(p => p.StripeSessionId == session_id && p.BuyerId == me.Value))
+            {
+                TempData["Success"] = "Payment confirmed! Your funds are held safely in escrow until you confirm pickup.";
+                return RedirectToAction("MyPurchases");
+            }
+
+            var session = StripeHelper.GetCheckoutSession(session_id);
+            if (!session.Success || !session.IsPaid)
+            {
+                TempData["Error"] = "Payment could not be verified: " + (session.Error ?? "Session not paid.");
+                return RedirectToAction("Cart");
+            }
+
+            if (!session.Metadata.TryGetValue("buyer_id", out string buyerIdStr) ||
+                !int.TryParse(buyerIdStr, out int sessionBuyerId) ||
+                sessionBuyerId != me.Value)
+            {
+                return new HttpUnauthorizedResult();
+            }
+
+            var productIds = new List<int>();
+            if (session.Metadata.TryGetValue("product_ids", out string idsRaw) && !string.IsNullOrWhiteSpace(idsRaw))
+            {
+                foreach (var part in idsRaw.Split(','))
+                {
+                    if (int.TryParse(part.Trim(), out int pid))
+                        productIds.Add(pid);
+                }
+            }
+
+            if (!productIds.Any())
+            {
+                TempData["Error"] = "No products found in payment session.";
+                return RedirectToAction("MyPurchases");
+            }
+
+            var products = db.Products.AsNoTracking().Where(p => productIds.Contains(p.ProductId)).ToList();
+            int purchasedCount = 0;
+
+            using (var tx = db.Database.BeginTransaction())
+            {
+                try
+                {
+                    foreach (var prod in products)
+                    {
+                        if (prod.SellerId == me.Value || prod.Status != ProductStatus.Approved)
+                            continue;
+
+                        int claimed = db.Database.ExecuteSqlCommand(
+                            "UPDATE Products SET Status = {0}, UpdatedAt = SYSUTCDATETIME() WHERE ProductId = {1} AND Status = {2}",
+                            (byte)ProductStatus.Sold, prod.ProductId, (byte)ProductStatus.Approved);
+
+                        if (claimed == 0) continue;
+
+                        db.Purchases.Add(new Purchase
+                        {
+                            ProductId = prod.ProductId,
+                            BuyerId = me.Value,
+                            PurchasePrice = prod.Price,
+                            PurchaseDate = DateTime.UtcNow,
+                            EscrowStatus = EscrowStatus.Held,
+                            StripeSessionId = session_id,
+                            StripePaymentIntentId = session.PaymentIntentId
+                        });
+
+                        db.Database.ExecuteSqlCommand("DELETE FROM CartItems WHERE ProductId = {0}", prod.ProductId);
+                        purchasedCount++;
+                    }
+
+                    db.SaveChanges();
+                    tx.Commit();
+                }
+                catch (DbUpdateException)
+                {
+                    tx.Rollback();
+                    TempData["Error"] = "Payment succeeded, but one or more items were just purchased by someone else. Please contact admin for a refund.";
+                    return RedirectToAction("MyPurchases");
+                }
+            }
+
+            if (purchasedCount > 0)
+            {
+                TempData["Success"] = purchasedCount + " item(s) paid! Funds are held safely by MU-Marketplace. Click 'Received & Satisfied' after campus pickup.";
+            }
+            else
+            {
+                TempData["Error"] = "Item(s) were sold just before payment completed. Please contact admin for a refund.";
+            }
+
             return RedirectToAction("MyPurchases");
         }
 
@@ -462,11 +566,75 @@ namespace MU_Marketplace.Controllers
                     PickupLocation = x.Product.PickupLocation,
                     SellerName = x.Product.Seller.FullName,
                     SellerPhone = x.Product.Seller.PhoneNumber,
-                    SellerEmail = x.Product.Seller.Email
+                    SellerEmail = x.Product.Seller.Email,
+                    EscrowStatus = x.EscrowStatus,
+                    RefundReason = x.RefundReason,
+                    ReleasedAt = x.ReleasedAt,
+                    RefundedAt = x.RefundedAt
                 })
                 .ToList();
 
             return View(items);
+        }
+
+        // POST /my-purchases/confirm/5
+        [Authorize]
+        [HttpPost, ValidateAntiForgeryToken]
+        [Route("~/my-purchases/confirm/{purchaseId:int}")]
+        public ActionResult ConfirmReceived(int purchaseId)
+        {
+            int? me = CurrentUserId();
+            if (!me.HasValue) return new HttpUnauthorizedResult();
+
+            var purchase = db.Purchases.FirstOrDefault(p => p.PurchaseId == purchaseId && p.BuyerId == me.Value);
+            if (purchase == null) return HttpNotFound();
+
+            if (purchase.EscrowStatus != EscrowStatus.Held && purchase.EscrowStatus != EscrowStatus.RefundRequested)
+            {
+                TempData["Error"] = "This order has already been finalized.";
+                return RedirectToAction("MyPurchases");
+            }
+
+            purchase.EscrowStatus = EscrowStatus.Released;
+            purchase.ReleasedAt = DateTime.UtcNow;
+            db.SaveChanges();
+
+            TempData["Success"] = "Confirmed! Payment has been released to the seller.";
+            return RedirectToAction("MyPurchases");
+        }
+
+        // POST /my-purchases/refund/5
+        [Authorize]
+        [HttpPost, ValidateAntiForgeryToken]
+        [Route("~/my-purchases/refund/{purchaseId:int}")]
+        public ActionResult RequestRefund(int purchaseId, string reason)
+        {
+            int? me = CurrentUserId();
+            if (!me.HasValue) return new HttpUnauthorizedResult();
+
+            var purchase = db.Purchases.FirstOrDefault(p => p.PurchaseId == purchaseId && p.BuyerId == me.Value);
+            if (purchase == null) return HttpNotFound();
+
+            if (purchase.EscrowStatus != EscrowStatus.Held)
+            {
+                TempData["Error"] = "Refund cannot be requested for this order.";
+                return RedirectToAction("MyPurchases");
+            }
+
+            string trimmed = (reason ?? "").Trim();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                TempData["Error"] = "Please enter a brief reason for requesting a refund.";
+                return RedirectToAction("MyPurchases");
+            }
+            if (trimmed.Length > 500) trimmed = trimmed.Substring(0, 500);
+
+            purchase.EscrowStatus = EscrowStatus.RefundRequested;
+            purchase.RefundReason = trimmed;
+            db.SaveChanges();
+
+            TempData["Success"] = "Refund request submitted. An administrator will review it shortly.";
+            return RedirectToAction("MyPurchases");
         }
 
         // =====================================================================
@@ -493,9 +661,22 @@ namespace MU_Marketplace.Controllers
                     CreatedDate = p.CreatedAt,
                     CategoryName = p.Category.CategoryName,
                     PickupLocation = p.PickupLocation,
-                    BuyerName = p.Purchases.Select(x => x.Buyer.FullName).FirstOrDefault(),
-                    BuyerPhone = p.Purchases.Select(x => x.Buyer.PhoneNumber).FirstOrDefault(),
-                    BuyerEmail = p.Purchases.Select(x => x.Buyer.Email).FirstOrDefault()
+                    BuyerName = p.Purchases
+                        .Where(x => x.EscrowStatus != EscrowStatus.Refunded)
+                        .OrderByDescending(x => x.PurchaseDate)
+                        .Select(x => x.Buyer.FullName).FirstOrDefault(),
+                    BuyerPhone = p.Purchases
+                        .Where(x => x.EscrowStatus != EscrowStatus.Refunded)
+                        .OrderByDescending(x => x.PurchaseDate)
+                        .Select(x => x.Buyer.PhoneNumber).FirstOrDefault(),
+                    BuyerEmail = p.Purchases
+                        .Where(x => x.EscrowStatus != EscrowStatus.Refunded)
+                        .OrderByDescending(x => x.PurchaseDate)
+                        .Select(x => x.Buyer.Email).FirstOrDefault(),
+                    EscrowStatus = p.Purchases
+                        .Where(x => x.EscrowStatus != EscrowStatus.Refunded)
+                        .OrderByDescending(x => x.PurchaseDate)
+                        .Select(x => (EscrowStatus?)x.EscrowStatus).FirstOrDefault()
                 })
                 .ToList();
 
@@ -509,7 +690,10 @@ namespace MU_Marketplace.Controllers
                     TotalListed = items.Count,
                     TotalSold = soldItems.Count,
                     PendingApproval = items.Count(x => x.Status == ProductStatus.Pending),
-                    TotalRevenue = soldItems.Sum(x => x.Price)
+                    // Only count payouts actually released by MU-Marketplace to the seller
+                    TotalRevenue = soldItems
+                        .Where(x => x.EscrowStatus == EscrowStatus.Released)
+                        .Sum(x => x.Price)
                 }
             };
 
@@ -702,6 +886,60 @@ namespace MU_Marketplace.Controllers
             }
 
             TempData["Success"] = "Listing removed.";
+            return RedirectToAction("MyListings");
+        }
+
+        // POST /my-listings/cancel-order/5   (seller cancels no-show order, refunds buyer, re-lists item)
+        [Authorize]
+        [HttpPost, ValidateAntiForgeryToken]
+        [Route("~/my-listings/cancel-order/{id:int}")]
+        public ActionResult SellerCancelOrder(int id)
+        {
+            int? me = CurrentUserId();
+            if (!me.HasValue) return new HttpUnauthorizedResult();
+
+            var product = db.Products.FirstOrDefault(x => x.ProductId == id && x.SellerId == me.Value);
+            if (product == null) return HttpNotFound();
+
+            if (product.Status != ProductStatus.Sold)
+            {
+                TempData["Error"] = "Only sold items with an active order can be cancelled.";
+                return RedirectToAction("MyListings");
+            }
+
+            var purchase = db.Purchases
+                .Where(p => p.ProductId == id && (p.EscrowStatus == EscrowStatus.Held || p.EscrowStatus == EscrowStatus.RefundRequested))
+                .OrderByDescending(p => p.PurchaseDate)
+                .FirstOrDefault();
+
+            if (purchase == null)
+            {
+                TempData["Error"] = "No active escrow order found for this listing.";
+                return RedirectToAction("MyListings");
+            }
+
+            string stripeMsg = "";
+            if (!string.IsNullOrWhiteSpace(purchase.StripePaymentIntentId) && StripeHelper.IsConfigured())
+            {
+                var refund = StripeHelper.CreateRefund(purchase.StripePaymentIntentId);
+                if (!refund.Success)
+                {
+                    TempData["Error"] = "Stripe refund failed: " + (refund.Error ?? "Unknown error");
+                    return RedirectToAction("MyListings");
+                }
+                stripeMsg = " (Stripe Refund ID: " + refund.RefundId + ")";
+            }
+
+            purchase.EscrowStatus = EscrowStatus.Refunded;
+            purchase.RefundedAt = DateTime.UtcNow;
+            purchase.RefundReason = "Cancelled by seller (buyer did not show up at pickup location)";
+
+            product.Status = ProductStatus.Approved;
+            product.UpdatedAt = DateTime.UtcNow;
+
+            db.SaveChanges();
+
+            TempData["Success"] = "Order cancelled, buyer refunded" + stripeMsg + ", and item is live on the marketplace again.";
             return RedirectToAction("MyListings");
         }
 

@@ -5,20 +5,36 @@
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
 
     DataTable orders = Model as DataTable;
+    DataTable categories = ViewBag.Categories as DataTable;
+    DataTable sellers = ViewBag.Sellers as DataTable;
+    DataTable buyers = ViewBag.Buyers as DataTable;
+
     string search = Convert.ToString(ViewBag.Search ?? "");
+    int currentStatus = ViewBag.CurrentStatus != null ? Convert.ToInt32(ViewBag.CurrentStatus) : -1;
+    int selectedCategory = ViewBag.CategoryId != null ? Convert.ToInt32(ViewBag.CategoryId) : 0;
+    int selectedSeller = ViewBag.SellerId != null ? Convert.ToInt32(ViewBag.SellerId) : 0;
+    int selectedBuyer = ViewBag.BuyerId != null ? Convert.ToInt32(ViewBag.BuyerId) : 0;
+
     int totalOrders = ViewBag.TotalOrders != null ? Convert.ToInt32(ViewBag.TotalOrders) : 0;
     decimal totalRevenue = ViewBag.TotalRevenue != null ? Convert.ToDecimal(ViewBag.TotalRevenue) : 0m;
     decimal avgOrder = ViewBag.AvgOrder != null ? Convert.ToDecimal(ViewBag.AvgOrder) : 0m;
+
+    bool hasFilters = !string.IsNullOrWhiteSpace(search) || currentStatus != -1 || selectedCategory != 0 || selectedSeller != 0 || selectedBuyer != 0;
 }
 
 <div class="page-heading">
     <div>
         <h1>Orders &amp; Purchases</h1>
-        <p>Track completed student-to-student purchases across the marketplace.</p>
+        <p>Filter orders by status, category, seller, or buyer and track escrow progress.</p>
     </div>
-    <a href="@Url.Action("ExportOrdersCsv", "Admin")" class="btn btn-amber">
-        &#8681; Download Orders CSV
-    </a>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="@Url.Action("Escrow", "Admin")" class="btn btn-secondary">
+            &#8377; Escrow &amp; Refunds
+        </a>
+        <a href="@Url.Action("ExportOrdersCsv", "Admin")" class="btn btn-amber">
+            &#8681; Download Orders CSV
+        </a>
+    </div>
 </div>
 
 <!-- ORDER SUMMARY -->
@@ -27,7 +43,7 @@
     <div class="stat-card accent-teal">
         <div class="stat-icon">&#9733;</div>
         <div class="stat-info">
-            <small>Total Completed Orders</small>
+            <small>Matching Orders</small>
             <h2>@totalOrders</h2>
         </div>
     </div>
@@ -35,7 +51,7 @@
     <div class="stat-card accent-green">
         <div class="stat-icon green">&#8377;</div>
         <div class="stat-info">
-            <small>Total Sales Volume</small>
+            <small>Net Sales Volume (Excl. Refunded)</small>
             <h2>&#8377;@totalRevenue.ToString("N2")</h2>
         </div>
     </div>
@@ -43,7 +59,7 @@
     <div class="stat-card accent-amber">
         <div class="stat-icon gold">&#8776;</div>
         <div class="stat-info">
-            <small>Average Order Value</small>
+            <small>Average Active Order</small>
             <h2>&#8377;@avgOrder.ToString("N2")</h2>
         </div>
     </div>
@@ -52,16 +68,69 @@
 
 <div class="panel-card">
 
-    <div class="filter-bar">
-        <span class="panel-count">@totalOrders order(s)</span>
+    <div class="filter-bar" style="flex-direction:column; align-items:stretch; gap:12px;">
 
-        @using (Html.BeginForm("Orders", "Admin", FormMethod.Get, new { @class = "search-form" }))
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div class="filter-tabs">
+                <a href="@Url.Action("Orders", new { status = -1, categoryId = selectedCategory, sellerId = selectedSeller, buyerId = selectedBuyer, search = search })"
+                   class="btn @(currentStatus == -1 ? "btn-amber" : "btn-secondary")">All</a>
+                <a href="@Url.Action("Orders", new { status = 0, categoryId = selectedCategory, sellerId = selectedSeller, buyerId = selectedBuyer, search = search })"
+                   class="btn @(currentStatus == 0 ? "btn-amber" : "btn-secondary")">Held in Escrow</a>
+                <a href="@Url.Action("Orders", new { status = 1, categoryId = selectedCategory, sellerId = selectedSeller, buyerId = selectedBuyer, search = search })"
+                   class="btn @(currentStatus == 1 ? "btn-amber" : "btn-secondary")">Paid to Seller</a>
+                <a href="@Url.Action("Orders", new { status = 2, categoryId = selectedCategory, sellerId = selectedSeller, buyerId = selectedBuyer, search = search })"
+                   class="btn @(currentStatus == 2 ? "btn-amber" : "btn-secondary")">Refund Requested</a>
+                <a href="@Url.Action("Orders", new { status = 3, categoryId = selectedCategory, sellerId = selectedSeller, buyerId = selectedBuyer, search = search })"
+                   class="btn @(currentStatus == 3 ? "btn-amber" : "btn-secondary")">Refunded</a>
+            </div>
+            <span class="panel-count">@totalOrders order(s)</span>
+        </div>
+
+        @using (Html.BeginForm("Orders", "Admin", FormMethod.Get, new { style = "display:flex; gap:10px; flex-wrap:wrap; align-items:center;" }))
         {
-            <input type="text" name="search" value="@search" class="form-control" placeholder="Search product, buyer, seller..." />
-            <button type="submit" class="btn btn-primary btn-sm">Search</button>
-            if (!string.IsNullOrWhiteSpace(search))
+            <input type="hidden" name="status" value="@currentStatus" />
+
+            <select name="categoryId" class="form-control" style="max-width:190px;" onchange="this.form.submit()">
+                <option value="0">All Categories</option>
+                @if (categories != null)
+                {
+                    foreach (DataRow c in categories.Rows)
+                    {
+                        int cid = Convert.ToInt32(c["CategoryId"]);
+                        <option value="@cid" @(selectedCategory == cid ? "selected" : "")>@c["CategoryName"]</option>
+                    }
+                }
+            </select>
+
+            <select name="sellerId" class="form-control" style="max-width:190px;" onchange="this.form.submit()">
+                <option value="0">All Sellers</option>
+                @if (sellers != null)
+                {
+                    foreach (DataRow s in sellers.Rows)
+                    {
+                        int sid = Convert.ToInt32(s["UserId"]);
+                        <option value="@sid" @(selectedSeller == sid ? "selected" : "")>@s["FullName"]</option>
+                    }
+                }
+            </select>
+
+            <select name="buyerId" class="form-control" style="max-width:190px;" onchange="this.form.submit()">
+                <option value="0">All Buyers</option>
+                @if (buyers != null)
+                {
+                    foreach (DataRow b in buyers.Rows)
+                    {
+                        int bid = Convert.ToInt32(b["UserId"]);
+                        <option value="@bid" @(selectedBuyer == bid ? "selected" : "")>@b["FullName"]</option>
+                    }
+                }
+            </select>
+
+            <input type="text" name="search" value="@search" class="form-control" style="flex:1; min-width:200px;" placeholder="Search order #, product, buyer, seller..." />
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            if (hasFilters)
             {
-                <a href="@Url.Action("Orders")" class="btn btn-secondary btn-sm">Clear</a>
+                <a href="@Url.Action("Orders")" class="btn btn-secondary btn-sm">Reset</a>
             }
         }
     </div>
@@ -77,6 +146,7 @@
                         <th>Seller</th>
                         <th>Pickup</th>
                         <th>Amount</th>
+                        <th>Status</th>
                         <th>Date</th>
                     </tr>
                 </thead>
@@ -85,6 +155,15 @@
                     {
                         foreach (DataRow row in orders.Rows)
                         {
+                            int es = Convert.ToInt32(row["EscrowStatus"]);
+                            string statusText =
+                                es == 0 ? "Held in Escrow" :
+                                es == 1 ? "Paid to Seller" :
+                                es == 2 ? "Refund Requested" : "Refunded";
+                            string statusClass =
+                                es == 1 ? "status-approved" :
+                                es == 3 ? "status-rejected" : "status-pending";
+
                             <tr>
                                 <td><strong>#@row["PurchaseId"]</strong></td>
                                 <td>
@@ -101,6 +180,15 @@
                                 </td>
                                 <td>@row["PickupLocation"]</td>
                                 <td><strong>&#8377;@Convert.ToDecimal(row["PurchasePrice"]).ToString("N2")</strong></td>
+                                <td>
+                                    <span class="status-badge @statusClass">@statusText</span>
+                                    @if (es == 0 || es == 2)
+                                    {
+                                        <div style="margin-top:4px;">
+                                            <a href="@Url.Action("Escrow", new { status = es })" style="font-size:0.75rem;">Manage &rarr;</a>
+                                        </div>
+                                    }
+                                </td>
                                 <td>@Convert.ToDateTime(row["PurchaseDate"]).ToString("dd MMM yyyy, hh:mm tt")</td>
                             </tr>
                         }
@@ -108,8 +196,8 @@
                     else
                     {
                         <tr>
-                            <td colspan="7" style="text-align:center;padding:32px;color:#5B6270;">
-                                No completed orders found yet.
+                            <td colspan="8" style="text-align:center;padding:32px;color:#5B6270;">
+                                No orders match the selected filters.
                             </td>
                         </tr>
                     }

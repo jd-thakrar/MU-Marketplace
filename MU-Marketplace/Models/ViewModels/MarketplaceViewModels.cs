@@ -135,6 +135,7 @@ namespace MU_Marketplace.Models.ViewModels
         public string BuyerName { get; set; }
         public string BuyerPhone { get; set; }
         public string BuyerEmail { get; set; }
+        public EscrowStatus? EscrowStatus { get; set; }
     }
 
     // ---------- My Listings Summary ----------
@@ -166,6 +167,10 @@ namespace MU_Marketplace.Models.ViewModels
         public string SellerName { get; set; }
         public string SellerPhone { get; set; }
         public string SellerEmail { get; set; }
+        public EscrowStatus EscrowStatus { get; set; }
+        public string RefundReason { get; set; }
+        public DateTime? ReleasedAt { get; set; }
+        public DateTime? RefundedAt { get; set; }
     }
 
     // ---------- Cart ----------

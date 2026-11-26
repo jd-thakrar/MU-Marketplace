@@ -31,7 +31,7 @@
         <strong>@Model.Summary.PendingApproval</strong>
     </div>
     <div class="mp-summary-card accent-teal">
-        <small>Total Revenue</small>
+        <small>Paid Profit (Released)</small>
         <strong>&#8377;@Model.Summary.TotalRevenue.ToString("N0")</strong>
     </div>
 </div>
@@ -78,6 +78,29 @@ else
                         if (!string.IsNullOrWhiteSpace(p.BuyerEmail))
                         {
                             <div class="mp-meta">Email: <a href="mailto:@p.BuyerEmail">@p.BuyerEmail</a></div>
+                        }
+                        if (p.EscrowStatus.HasValue)
+                        {
+                            string escrowLabel =
+                                p.EscrowStatus == EscrowStatus.Released ? "Payout Released (Added to Profit)" :
+                                p.EscrowStatus == EscrowStatus.RefundRequested ? "Refund Requested (Admin Review)" :
+                                p.EscrowStatus == EscrowStatus.Refunded ? "Refunded to Buyer" :
+                                "Held in Escrow (Awaiting Buyer)";
+                            string escrowClass =
+                                p.EscrowStatus == EscrowStatus.Released ? "mp-approved" :
+                                p.EscrowStatus == EscrowStatus.Refunded ? "mp-rejected" : "mp-pending";
+                            <div style="margin-top:6px"><span class="mp-badge @escrowClass">@escrowLabel</span></div>
+                            if (p.EscrowStatus == EscrowStatus.Held || p.EscrowStatus == EscrowStatus.RefundRequested)
+                            {
+                                <div style="margin-top:8px">
+                                    @using (Html.BeginForm("SellerCancelOrder", "Marketplace", new { id = p.ProductId }, FormMethod.Post,
+                                           new { @class = "mp-inline", onsubmit = "return confirm('Cancel this order, refund the buyer, and re-list this item on the marketplace?');" }))
+                                    {
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="mp-btn mp-btn-danger">Cancel Order &amp; Re-list</button>
+                                    }
+                                </div>
+                            }
                         }
                     }
                     else

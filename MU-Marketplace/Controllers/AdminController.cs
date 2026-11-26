@@ -122,6 +122,7 @@ namespace MU_Marketplace.Controllers
 
             DataTable recentPending = new DataTable();
             DataTable recentReports = new DataTable();
+            DataTable recentEscrow = new DataTable();
             DataTable categoryStats = new DataTable();
             DataTable statusStats = new DataTable();
 
@@ -137,8 +138,12 @@ namespace MU_Marketplace.Controllers
                         (SELECT COUNT(*) FROM Reports WHERE [Status] = 0) AS OpenReports,
                         (SELECT COUNT(*) FROM Products WHERE [Status] = 3) AS SoldProducts,
                         (SELECT COUNT(*) FROM Categories WHERE IsActive = 1) AS ActiveCategories,
-                        (SELECT ISNULL(SUM(PurchasePrice), 0) FROM Purchases) AS TotalSales,
-                        (SELECT COUNT(*) FROM Purchases) AS TotalOrders";
+                        (SELECT ISNULL(SUM(PurchasePrice), 0) FROM Purchases WHERE EscrowStatus <> 3) AS TotalSales,
+                        (SELECT COUNT(*) FROM Purchases WHERE EscrowStatus <> 3) AS TotalOrders,
+                        (SELECT ISNULL(SUM(PurchasePrice), 0) FROM Purchases WHERE EscrowStatus IN (0, 2)) AS HeldEscrowAmount,
+                        (SELECT ISNULL(SUM(PurchasePrice), 0) FROM Purchases WHERE EscrowStatus = 1) AS ReleasedEscrowAmount,
+                        (SELECT ISNULL(SUM(PurchasePrice), 0) FROM Purchases WHERE EscrowStatus = 3) AS RefundedAmount,
+                        (SELECT COUNT(*) FROM Purchases WHERE EscrowStatus = 2) AS RefundRequests";
 
                 using (SqlCommand cmd = new SqlCommand(statsQuery, con))
                 using (SqlDataReader reader = cmd.ExecuteReader())
@@ -153,6 +158,10 @@ namespace MU_Marketplace.Controllers
                         ViewBag.ActiveCategories = reader["ActiveCategories"];
                         ViewBag.TotalSales = Convert.ToDecimal(reader["TotalSales"]);
                         ViewBag.TotalOrders = reader["TotalOrders"];
+                        ViewBag.HeldEscrowAmount = Convert.ToDecimal(reader["HeldEscrowAmount"]);
+                        ViewBag.ReleasedEscrowAmount = Convert.ToDecimal(reader["ReleasedEscrowAmount"]);
+                        ViewBag.RefundedAmount = Convert.ToDecimal(reader["RefundedAmount"]);
+                        ViewBag.RefundRequests = Convert.ToInt32(reader["RefundRequests"]);
                     }
                 }
 
@@ -211,10 +220,28 @@ namespace MU_Marketplace.Controllers
                 {
                     da.Fill(recentReports);
                 }
+
+                string escrowQuery = @"
+                    SELECT TOP 5
+                        pu.PurchaseId, pu.PurchasePrice, pu.EscrowStatus, pu.RefundReason, pu.PurchaseDate,
+                        p.Title AS ProductTitle, buyer.FullName AS BuyerName, seller.FullName AS SellerName
+                    FROM Purchases pu
+                    INNER JOIN Products p ON pu.ProductId = p.ProductId
+                    INNER JOIN Users buyer ON pu.BuyerId = buyer.UserId
+                    INNER JOIN Users seller ON p.SellerId = seller.UserId
+                    WHERE pu.EscrowStatus IN (0, 2)
+                    ORDER BY CASE WHEN pu.EscrowStatus = 2 THEN 0 ELSE 1 END, pu.PurchaseDate DESC";
+
+                using (SqlCommand cmd = new SqlCommand(escrowQuery, con))
+                using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+                {
+                    da.Fill(recentEscrow);
+                }
             }
 
             ViewBag.RecentPending = recentPending;
             ViewBag.RecentReports = recentReports;
+            ViewBag.RecentEscrow = recentEscrow;
             ViewBag.CategoryStats = categoryStats;
             ViewBag.StatusStats = statusStats;
 
@@ -261,7 +288,7 @@ namespace MU_Marketplace.Controllers
                     FROM Products p
                     INNER JOIN Users u ON p.SellerId = u.UserId
                     INNER JOIN Categories c ON p.CategoryId = c.CategoryId
-                    LEFT JOIN Purchases pu ON p.ProductId = pu.ProductId
+                    LEFT JOIN Purchases pu ON p.ProductId = pu.ProductId AND pu.EscrowStatus <> 3
                     LEFT JOIN Users buyer ON pu.BuyerId = buyer.UserId
                     WHERE p.[Status] = @Status
                     AND (
@@ -540,14 +567,15 @@ namespace MU_Marketplace.Controllers
                     }
                 }
 
-                // Sales KPIs
+                // Sales KPIs — only count Released-to-seller orders (EscrowStatus = 1)
                 string salesKpiQuery = @"
                     SELECT
                         COUNT(*) AS TotalOrders,
                         ISNULL(SUM(PurchasePrice), 0) AS TotalRevenue,
                         ISNULL(AVG(PurchasePrice), 0) AS AvgOrderValue,
                         ISNULL(MAX(PurchasePrice), 0) AS HighestOrder
-                    FROM Purchases";
+                    FROM Purchases
+                    WHERE EscrowStatus = 1";
 
                 using (SqlCommand cmd = new SqlCommand(salesKpiQuery, con))
                 using (SqlDataReader r = cmd.ExecuteReader())
@@ -561,7 +589,7 @@ namespace MU_Marketplace.Controllers
                     }
                 }
 
-                // Sales by Category
+                // Sales by Category — only Released orders
                 string salesCatQuery = @"
                     SELECT
                         c.CategoryName,
@@ -569,7 +597,7 @@ namespace MU_Marketplace.Controllers
                         ISNULL(SUM(pu.PurchasePrice), 0) AS Revenue
                     FROM Categories c
                     LEFT JOIN Products p ON p.CategoryId = c.CategoryId
-                    LEFT JOIN Purchases pu ON pu.ProductId = p.ProductId
+                    LEFT JOIN Purchases pu ON pu.ProductId = p.ProductId AND pu.EscrowStatus = 1
                     GROUP BY c.CategoryName
                     ORDER BY Revenue DESC, c.CategoryName";
 
@@ -579,7 +607,7 @@ namespace MU_Marketplace.Controllers
                     da.Fill(salesByCategory);
                 }
 
-                // Top Sellers
+                // Top Sellers — only Released orders count as earnings
                 string topSellerQuery = @"
                     SELECT TOP 10
                         u.FullName,
@@ -588,7 +616,7 @@ namespace MU_Marketplace.Controllers
                         ISNULL(SUM(pu.PurchasePrice), 0) AS TotalEarned
                     FROM Users u
                     INNER JOIN Products p ON p.SellerId = u.UserId
-                    INNER JOIN Purchases pu ON pu.ProductId = p.ProductId
+                    INNER JOIN Purchases pu ON pu.ProductId = p.ProductId AND pu.EscrowStatus = 1
                     GROUP BY u.UserId, u.FullName, u.Email
                     ORDER BY TotalEarned DESC, ItemsSold DESC";
 
@@ -609,8 +637,8 @@ namespace MU_Marketplace.Controllers
                         u.LastLoginAt,
                         (SELECT COUNT(*) FROM Products p WHERE p.SellerId = u.UserId) AS TotalListings,
                         (SELECT COUNT(*) FROM Products p WHERE p.SellerId = u.UserId AND p.[Status] = 3) AS SoldCount,
-                        (SELECT COUNT(*) FROM Purchases pu WHERE pu.BuyerId = u.UserId) AS PurchasesCount,
-                        (SELECT ISNULL(SUM(pu.PurchasePrice), 0) FROM Purchases pu WHERE pu.BuyerId = u.UserId) AS TotalSpent
+                        (SELECT COUNT(*) FROM Purchases pu WHERE pu.BuyerId = u.UserId AND pu.EscrowStatus = 1) AS PurchasesCount,
+                        (SELECT ISNULL(SUM(pu.PurchasePrice), 0) FROM Purchases pu WHERE pu.BuyerId = u.UserId AND pu.EscrowStatus = 1) AS TotalSpent
                     FROM Users u
                     WHERE u.[Role] = 0
                     ORDER BY TotalListings DESC, PurchasesCount DESC, u.CreatedAt DESC";
@@ -922,22 +950,53 @@ namespace MU_Marketplace.Controllers
         // 7. MANAGE ORDERS / PURCHASES
         // ==========================================
 
-        public ActionResult Orders(string search = "")
+        public ActionResult Orders(string search = "", int status = -1, int categoryId = 0, int sellerId = 0, int buyerId = 0)
         {
             var access = CheckAdmin();
             if (access != null) return access;
 
             DataTable orders = new DataTable();
+            DataTable categories = new DataTable();
+            DataTable sellers = new DataTable();
+            DataTable buyers = new DataTable();
             string term = (search ?? string.Empty).Trim();
 
             using (SqlConnection con = new SqlConnection(connectionString))
             {
+                con.Open();
+
+                using (SqlDataAdapter da = new SqlDataAdapter(
+                    "SELECT CategoryId, CategoryName FROM Categories ORDER BY CategoryName;", con))
+                {
+                    da.Fill(categories);
+                }
+
+                using (SqlDataAdapter da = new SqlDataAdapter(@"
+                    SELECT DISTINCT seller.UserId, seller.FullName
+                    FROM Purchases pu
+                    INNER JOIN Products p ON pu.ProductId = p.ProductId
+                    INNER JOIN Users seller ON p.SellerId = seller.UserId
+                    ORDER BY seller.FullName;", con))
+                {
+                    da.Fill(sellers);
+                }
+
+                using (SqlDataAdapter da = new SqlDataAdapter(@"
+                    SELECT DISTINCT buyer.UserId, buyer.FullName
+                    FROM Purchases pu
+                    INNER JOIN Users buyer ON pu.BuyerId = buyer.UserId
+                    ORDER BY buyer.FullName;", con))
+                {
+                    da.Fill(buyers);
+                }
+
                 string query = @"
                     SELECT
                         pu.PurchaseId,
                         pu.ProductId,
                         pu.PurchasePrice,
                         pu.PurchaseDate,
+                        pu.EscrowStatus,
                         p.Title AS ProductTitle,
                         p.PickupLocation,
                         c.CategoryName,
@@ -950,18 +1009,29 @@ namespace MU_Marketplace.Controllers
                     INNER JOIN Categories c ON p.CategoryId = c.CategoryId
                     INNER JOIN Users buyer ON pu.BuyerId = buyer.UserId
                     INNER JOIN Users seller ON p.SellerId = seller.UserId
-                    WHERE (
-                        @Search = ''
-                        OR p.Title LIKE '%' + @Search + '%'
-                        OR buyer.FullName LIKE '%' + @Search + '%'
-                        OR buyer.Email LIKE '%' + @Search + '%'
-                        OR seller.FullName LIKE '%' + @Search + '%'
-                        OR c.CategoryName LIKE '%' + @Search + '%'
-                    )
+                    WHERE
+                        (@Status = -1 OR pu.EscrowStatus = @Status)
+                        AND (@CategoryId = 0 OR c.CategoryId = @CategoryId)
+                        AND (@SellerId = 0 OR p.SellerId = @SellerId)
+                        AND (@BuyerId = 0 OR pu.BuyerId = @BuyerId)
+                        AND (
+                            @Search = ''
+                            OR CAST(pu.PurchaseId AS NVARCHAR(20)) = @Search
+                            OR p.Title LIKE '%' + @Search + '%'
+                            OR buyer.FullName LIKE '%' + @Search + '%'
+                            OR buyer.Email LIKE '%' + @Search + '%'
+                            OR seller.FullName LIKE '%' + @Search + '%'
+                            OR seller.Email LIKE '%' + @Search + '%'
+                            OR c.CategoryName LIKE '%' + @Search + '%'
+                        )
                     ORDER BY pu.PurchaseDate DESC";
 
                 using (SqlCommand cmd = new SqlCommand(query, con))
                 {
+                    cmd.Parameters.Add("@Status", SqlDbType.Int).Value = status;
+                    cmd.Parameters.Add("@CategoryId", SqlDbType.Int).Value = categoryId;
+                    cmd.Parameters.Add("@SellerId", SqlDbType.Int).Value = sellerId;
+                    cmd.Parameters.Add("@BuyerId", SqlDbType.Int).Value = buyerId;
                     cmd.Parameters.Add("@Search", SqlDbType.NVarChar, 150).Value = term;
                     using (SqlDataAdapter da = new SqlDataAdapter(cmd))
                     {
@@ -971,17 +1041,218 @@ namespace MU_Marketplace.Controllers
             }
 
             decimal totalRevenue = 0m;
+            int activeCount = 0;
             foreach (DataRow row in orders.Rows)
             {
-                totalRevenue += Convert.ToDecimal(row["PurchasePrice"]);
+                int es = Convert.ToInt32(row["EscrowStatus"]);
+                if (es != 3)
+                {
+                    totalRevenue += Convert.ToDecimal(row["PurchasePrice"]);
+                    activeCount++;
+                }
             }
 
             ViewBag.Search = term;
+            ViewBag.CurrentStatus = status;
+            ViewBag.CategoryId = categoryId;
+            ViewBag.SellerId = sellerId;
+            ViewBag.BuyerId = buyerId;
+            ViewBag.Categories = categories;
+            ViewBag.Sellers = sellers;
+            ViewBag.Buyers = buyers;
             ViewBag.TotalOrders = orders.Rows.Count;
             ViewBag.TotalRevenue = totalRevenue;
-            ViewBag.AvgOrder = orders.Rows.Count > 0 ? totalRevenue / orders.Rows.Count : 0m;
+            ViewBag.AvgOrder = activeCount > 0 ? totalRevenue / activeCount : 0m;
 
             return View(orders);
+        }
+
+        // ==========================================
+        // 7B. ESCROW & REFUNDS MANAGEMENT
+        // ==========================================
+
+        public ActionResult Escrow(int status = -1, string search = "")
+        {
+            var access = CheckAdmin();
+            if (access != null) return access;
+
+            DataTable rows = new DataTable();
+            string term = (search ?? string.Empty).Trim();
+
+            decimal heldTotal = 0m;
+            decimal releasedTotal = 0m;
+            decimal refundedTotal = 0m;
+            int refundRequestsCount = 0;
+
+            using (SqlConnection con = new SqlConnection(connectionString))
+            {
+                con.Open();
+
+                using (SqlCommand sumCmd = new SqlCommand(@"
+                    SELECT
+                        ISNULL(SUM(CASE WHEN EscrowStatus IN (0, 2) THEN PurchasePrice ELSE 0 END), 0) AS HeldTotal,
+                        ISNULL(SUM(CASE WHEN EscrowStatus = 1 THEN PurchasePrice ELSE 0 END), 0) AS ReleasedTotal,
+                        ISNULL(SUM(CASE WHEN EscrowStatus = 3 THEN PurchasePrice ELSE 0 END), 0) AS RefundedTotal,
+                        ISNULL(SUM(CASE WHEN EscrowStatus = 2 THEN 1 ELSE 0 END), 0) AS RefundReqCount
+                    FROM Purchases;", con))
+                using (SqlDataReader r = sumCmd.ExecuteReader())
+                {
+                    if (r.Read())
+                    {
+                        heldTotal = Convert.ToDecimal(r["HeldTotal"]);
+                        releasedTotal = Convert.ToDecimal(r["ReleasedTotal"]);
+                        refundedTotal = Convert.ToDecimal(r["RefundedTotal"]);
+                        refundRequestsCount = Convert.ToInt32(r["RefundReqCount"]);
+                    }
+                }
+
+                string query = @"
+                    SELECT
+                        pu.PurchaseId,
+                        pu.ProductId,
+                        pu.PurchasePrice,
+                        pu.PurchaseDate,
+                        pu.EscrowStatus,
+                        pu.StripeSessionId,
+                        pu.StripePaymentIntentId,
+                        pu.RefundReason,
+                        pu.ReleasedAt,
+                        pu.RefundedAt,
+                        p.Title AS ProductTitle,
+                        p.PickupLocation,
+                        buyer.FullName AS BuyerName,
+                        buyer.Email AS BuyerEmail,
+                        seller.FullName AS SellerName,
+                        seller.Email AS SellerEmail
+                    FROM Purchases pu
+                    INNER JOIN Products p ON pu.ProductId = p.ProductId
+                    INNER JOIN Users buyer ON pu.BuyerId = buyer.UserId
+                    INNER JOIN Users seller ON p.SellerId = seller.UserId
+                    WHERE
+                        (@Status = -1 OR pu.EscrowStatus = @Status)
+                        AND (@Search = ''
+                             OR p.Title LIKE '%' + @Search + '%'
+                             OR buyer.FullName LIKE '%' + @Search + '%'
+                             OR buyer.Email LIKE '%' + @Search + '%'
+                             OR seller.FullName LIKE '%' + @Search + '%'
+                             OR seller.Email LIKE '%' + @Search + '%')
+                    ORDER BY
+                        CASE WHEN pu.EscrowStatus = 2 THEN 0 WHEN pu.EscrowStatus = 0 THEN 1 ELSE 2 END,
+                        pu.PurchaseDate DESC;";
+
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.Add("@Status", SqlDbType.Int).Value = status;
+                    cmd.Parameters.Add("@Search", SqlDbType.NVarChar, 150).Value = term;
+                    using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+                    {
+                        da.Fill(rows);
+                    }
+                }
+            }
+
+            ViewBag.CurrentStatus = status;
+            ViewBag.Search = term;
+            ViewBag.HeldTotal = heldTotal;
+            ViewBag.ReleasedTotal = releasedTotal;
+            ViewBag.RefundedTotal = refundedTotal;
+            ViewBag.RefundRequestsCount = refundRequestsCount;
+
+            return View(rows);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult ReleaseEscrow(int purchaseId)
+        {
+            var access = CheckAdmin();
+            if (access != null) return access;
+
+            using (SqlConnection con = new SqlConnection(connectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE Purchases
+                    SET EscrowStatus = 1,
+                        ReleasedAt = SYSUTCDATETIME()
+                    WHERE PurchaseId = @PurchaseId AND EscrowStatus IN (0, 2);", con))
+                {
+                    cmd.Parameters.Add("@PurchaseId", SqlDbType.Int).Value = purchaseId;
+                    int updated = cmd.ExecuteNonQuery();
+                    if (updated > 0)
+                        TempData["Success"] = "Order #" + purchaseId + " payout released to seller.";
+                    else
+                        TempData["Error"] = "Order #" + purchaseId + " could not be released (already finalized).";
+                }
+            }
+
+            return RedirectToAction("Escrow");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult RefundEscrow(int purchaseId)
+        {
+            var access = CheckAdmin();
+            if (access != null) return access;
+
+            string paymentIntentId = null;
+            int currentStatus = -1;
+
+            using (SqlConnection con = new SqlConnection(connectionString))
+            {
+                con.Open();
+                using (SqlCommand getCmd = new SqlCommand(
+                    "SELECT EscrowStatus, StripePaymentIntentId FROM Purchases WHERE PurchaseId = @PurchaseId;", con))
+                {
+                    getCmd.Parameters.Add("@PurchaseId", SqlDbType.Int).Value = purchaseId;
+                    using (SqlDataReader r = getCmd.ExecuteReader())
+                    {
+                        if (!r.Read())
+                        {
+                            TempData["Error"] = "Order #" + purchaseId + " not found.";
+                            return RedirectToAction("Escrow");
+                        }
+                        currentStatus = Convert.ToInt32(r["EscrowStatus"]);
+                        paymentIntentId = r["StripePaymentIntentId"] == DBNull.Value
+                            ? null
+                            : Convert.ToString(r["StripePaymentIntentId"]);
+                    }
+                }
+
+                if (currentStatus != 0 && currentStatus != 2)
+                {
+                    TempData["Error"] = "Order #" + purchaseId + " has already been finalized.";
+                    return RedirectToAction("Escrow");
+                }
+
+                // If paid via Stripe, issue real Stripe refund in Test/Live mode
+                string stripeMsg = "";
+                if (!string.IsNullOrWhiteSpace(paymentIntentId) && StripeHelper.IsConfigured())
+                {
+                    var refund = StripeHelper.CreateRefund(paymentIntentId);
+                    if (!refund.Success)
+                    {
+                        TempData["Error"] = "Stripe refund failed: " + (refund.Error ?? "Unknown error");
+                        return RedirectToAction("Escrow");
+                    }
+                    stripeMsg = " (Stripe Refund ID: " + refund.RefundId + ")";
+                }
+
+                using (SqlCommand updCmd = new SqlCommand(@"
+                    UPDATE Purchases
+                    SET EscrowStatus = 3,
+                        RefundedAt = SYSUTCDATETIME()
+                    WHERE PurchaseId = @PurchaseId AND EscrowStatus IN (0, 2);", con))
+                {
+                    updCmd.Parameters.Add("@PurchaseId", SqlDbType.Int).Value = purchaseId;
+                    updCmd.ExecuteNonQuery();
+                }
+
+                TempData["Success"] = "Order #" + purchaseId + " refunded to buyer" + stripeMsg + ".";
+            }
+
+            return RedirectToAction("Escrow");
         }
 
         // ==========================================
